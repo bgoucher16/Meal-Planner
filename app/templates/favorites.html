@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Favorites List</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='grocery_list.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h2>Favorites List</h2>
+        <ul id="grocery-list">
+            {% for item in favorites %}
+                <li class="grocery-item">
+                    <div class="item-name">{{ item }}</div>
+                    <div class="button-container">
+                        <form action="{{ url_for('grocery_list_unfavorite') }}" method="post">
+                            <input type="hidden" name="item" value="{{ item }}">
+                            <button class="favorite-button">Unfavorite</button>
+                    </div>
+                </li>
+            {% endfor %}
+        </ul>
+        <p><a href="/">Home</a></p>
+    </div>
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h2>Register</h2>
+        <form method="post" action="{{ url_for('register') }}">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <div class="form-group">
+                <label for="confirm_password">Confirm Password</label>
+                <input type="password" id="confirm_password" name="confirm_password" required>
+            </div>
+            <div class="form-group">
+                <label for="location">Location:</label>
+                <input type="text" id="location" name="location" autocomplete="off" onkeyup="autocomplete()">
+            </div>
+            <button type="submit">Register</button>
+
+            <p>Already have an account? <a href="/login">Login</a></p>
+        </form>
+    </div>
+
+    <script>
+        // Function to fetch the API key
+        async function fetchGoogleMapsKey() {
+            try {
+                const response = await fetch('/api/get-key');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                return data.apiKey;
+            } catch (error) {
+                console.error('Error fetching Google Maps API key:', error);
+            }
+        }
+
+        // Load Google Maps script dynamically
+        async function loadGoogleMapsScript() {
+            const apiKey = await fetchGoogleMapsKey();
+            if (!apiKey) return;
+
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+            script.async = true;
+            script.defer = true;
+            document.head.appendChild(script);
+
+            script.onload = () => initializeAutocomplete();
+        }
+
+        // Initialize Google Maps Autocomplete
+        function initializeAutocomplete() {
+            const input = document.getElementById('location');
+            const autocomplete = new google.maps.places.Autocomplete(input);
+
+            // Optionally, restrict the search to a specific region or types
+            autocomplete.setFields(['address_components', 'formatted_address']);
+        }
+
+        // Load the Google Maps script on page load
+        loadGoogleMapsScript();
+    </script>
+
+</body>
+</html>
