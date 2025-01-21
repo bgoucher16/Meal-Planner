@@ -12,13 +12,13 @@ from bs4 import BeautifulSoup
 load_dotenv()
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv("SECRET_KEY", "your_secret_key")
-app.config['JWT_SECRET_KEY'] = os.getenv("JWT_SECRET_KEY", "your_jwt_secret_key")
+app.config['SECRET_KEY'] = os.getenv("SECRET_KEY")
+app.config['JWT_SECRET_KEY'] = os.getenv("JWT_SECRET_KEY")
 CORS(app)
 jwt = JWTManager(app)
 
 # MongoDB setup
-mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/meal_planner_db")
+mongo_uri = os.getenv("MONGO_URI")
 client = MongoClient(mongo_uri)
 db = client.meal_planner_db
 
@@ -32,6 +32,8 @@ def get_key():
 
 @app.route('/')
 def home():
+    if not session.get('username'):
+        return redirect(url_for('show_login'))
     return render_template('home.html')
 
 @app.route('/register', methods=['POST'])
