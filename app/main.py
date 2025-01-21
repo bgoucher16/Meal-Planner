@@ -30,12 +30,6 @@ if 'users' not in db.list_collection_names():
 def get_key():
     return jsonify({"apiKey": os.getenv("GML_API_KEY")})
 
-@app.route('/')
-def home():
-    if not session.get('username'):
-        return redirect(url_for('show_login'))
-    return render_template('home.html')
-
 @app.route('/register', methods=['POST'])
 def register():
     username = request.form.get('username')
@@ -86,6 +80,22 @@ def login():
     return redirect(url_for('home'))
 
 #User Routing
+
+@app.route('/')
+def show_home():
+    username = session.get('username')
+    if not username:
+        flash("You must be logged in to view the home page", "error")
+        return redirect(url_for('show_login'))
+
+    user = db.users.find_one({"username": username})
+    if not user:
+        flash("User not found", "error")
+        return redirect(url_for('show_login'))
+
+    grocery_list = user.get('grocery_list', [])
+    favorites = user.get('favorites', [])
+    return render_template('home.html', grocery_list=grocery_list, favorites=favorites)
 
 @app.route('/logout', methods=['GET'])
 def logout():
@@ -205,7 +215,7 @@ def grocery_list_favorite():
     if "favorites" not in user:
         db.users.update_one({"username": username}, {"$set": {"favorites": []}})
 
-    if item in user['favorites']:
+    if item in user["favorites"]:
         flash("Item already favorited", "error")
         return redirect(url_for('show_grocery_list'))
     
@@ -275,16 +285,14 @@ def scrape_ingredients():
 
     soup = BeautifulSoup(response.content, 'html.parser')
     # Try different selectors for ingredients
-    ingredient_selectors = ['.field-name-field-rec-ing .field-item', 'div.field-item.odd', '.ingredient', '.ingredients-item', '.recipe-ingredients li', 'field-item.even', 'field-item.odd']
-    ingredients = []
-    for selector in ingredient_selectors:
-        ingredients.extend([ingredient.get_text().strip() for ingredient in soup.select(selector)])
+    ingredients = soup.find_all(attrs={"itemprop": "ingredients"})
+    for i in ingredients:
+        db.users.update_one({"username": username}, {"$push": {"grocery_list": i.text.strip().lower()}})
 
     if not ingredients:
         return jsonify({"msg": "No ingredients found"}), 404
 
     # Add ingredients to the grocery list
-    db.users.update_one({"username": username}, {"$addToSet": {"grocery_list": {"$each": ingredients}}})
     return jsonify({"msg": "Ingredients added to grocery list"}), 200
 
 

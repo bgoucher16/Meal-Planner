@@ -4,15 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Home</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='home.css') }}">
 </head>
 <body>
+    <header>
+        <div class="logo">Preppr</div>
+        <nav>
+            <ul>
+                <li><a href="/grocery-list">Grocery List</a></li>
+                <li><a href="/favorites">Favorites</a></li>
+                <li><a href="/recipes">Recipes</a></li>
+                <li class="logout"><a href="/logout">Logout</a></li>
+            </ul>
+        </nav>
+    </header>
     <div class="container">
-        <h2>Welcome to the Meal Planner</h2>
-        <p><a href="/grocery-list">View Grocery List</a></p>
-        <p><a href="/favorites">Favorites</a></p>
-        <p><a href="/recipes">Recipes</a></p>
-        <p><a href="/logout">Logout</a></p>
+        <div class="list-container">
+            <h3>Grocery List</h3>
+            <ul>
+                {% for item in grocery_list[:10] %}
+                    <li>{{ item }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div class="list-container">
+            <h3>Favorites</h3>
+            <ul>
+                {% for item in favorites[:10] %}
+                    <li>{{ item }}</li>
+                {% endfor %}
+            </ul>
+        </div>
     </div>
 </body>
 </html>
