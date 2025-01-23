@@ -64,6 +64,12 @@ def login():
     username = request.form.get('username')
     password = request.form.get('password')
 
+    admin_username = os.getenv("ADMIN_USERNAME")
+    admin_password = os.getenv("ADMIN_PASSWORD")
+
+    if username == admin_username and password == admin_password:
+        return redirect(url_for('show_admin'))
+
     if not username or not password:
         flash("Username and password are required", "error")
         return redirect(url_for('show_login'))
@@ -77,7 +83,7 @@ def login():
     session['username'] = username
     session['access_token'] = access_token
     flash("Login successful", "success")
-    return redirect(url_for('home'))
+    return redirect(url_for('show_home'))
 
 #User Routing
 
@@ -111,6 +117,10 @@ def show_register():
 @app.route('/login', methods=['GET'])
 def show_login():
     return render_template('login.html')
+
+@app.route('/admin', methods=['GET'])
+def show_admin():
+    return render_template('admin.html')
 
 @app.route('/grocery-list', methods=['GET'])
 def show_grocery_list():
@@ -156,7 +166,6 @@ def grocery_list_add():
 
     # Get and validate the item
     item = request.form.get('item', '').strip().lower()
-    print(item)
     if not item:
         flash("Item is required", "error")
         return redirect(url_for('show_grocery_list'))
@@ -169,6 +178,38 @@ def grocery_list_add():
     db.users.update_one({"username": username}, {"$push": {"grocery_list": item}})
     flash("Item added to grocery list", "success")
     return redirect(url_for('show_grocery_list'))
+
+#for readding favorite items to the grocery list whilst staying on the favorites page
+@app.route('/grocery-list-add-favorites', methods=['POST'])
+def grocery_list_add_favorites():
+    username = session.get('username')
+    if not username:
+        flash("You must be logged in to add items to your grocery list", "error")
+        return redirect(url_for('show_login'))
+    
+    user = db.users.find_one({"username": username})
+    if not user:
+        flash("User not found", "error")
+        return redirect(url_for('show_login'))
+
+    # Initialize grocery_list if it doesn't exist
+    if "grocery_list" not in user:
+        db.users.update_one({"username": username}, {"$set": {"grocery_list": []}})
+
+    # Get and validate the item
+    item = request.form.get('item', '').strip().lower()
+    if not item:
+        flash("Item is required", "error")
+        return redirect(url_for('show_favorites'))
+    
+    if item in user['grocery_list']:
+        flash("Item already exists in grocery list", "error")
+        return redirect(url_for('show_favorites'))
+    
+    # Add item to the grocery list
+    db.users.update_one({"username": username}, {"$push": {"grocery_list": item}})
+    flash("Item added to grocery list", "success")
+    return redirect(url_for('show_favorites'))
 
 @app.route('/grocery-list-delete', methods=['POST'])
 def grocery_list_delete():
@@ -284,10 +325,15 @@ def scrape_ingredients():
         return jsonify({"msg": "Failed to fetch recipe page"}), 500
 
     soup = BeautifulSoup(response.content, 'html.parser')
-    # Try different selectors for ingredients
+
+    # all recipes are grabbed from foodista.com, so we can use the same selector for all recipes
     ingredients = soup.find_all(attrs={"itemprop": "ingredients"})
     for i in ingredients:
-        db.users.update_one({"username": username}, {"$push": {"grocery_list": i.text.strip().lower()}})
+        #check to see if the ingredients last letter is :, if so do not add it to the grocery list
+        if i.text.strip().lower()[-1] == ":":
+            pass
+        else:
+            db.users.update_one({"username": username}, {"$push": {"grocery_list": i.text.strip().lower()}})
 
     if not ingredients:
         return jsonify({"msg": "No ingredients found"}), 404
@@ -295,6 +341,20 @@ def scrape_ingredients():
     # Add ingredients to the grocery list
     return jsonify({"msg": "Ingredients added to grocery list"}), 200
 
+
+@app.route('/search-user', methods=['GET'])
+def search_user():
+    username = request.args.get('user')
+    if not username:
+        flash("Please enter a username", "error")
+        return redirect(url_for('show_admin'))
+
+    user = db.users.find_one({"username": username})
+    if not user:
+        flash("User not found", "error")
+        return redirect(url_for('show_admin'))
+
+    return render_template('admin.html', user=user)
 
 if __name__ == "__main__":
     app.run(debug=True)

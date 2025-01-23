@@ -17,6 +17,12 @@
                         <form action="{{ url_for('grocery_list_unfavorite') }}" method="post">
                             <input type="hidden" name="item" value="{{ item }}">
                             <button class="favorite-button">Unfavorite</button>
+                        </form>
+
+                        <form action="{{ url_for('grocery_list_add_favorites') }}" method="post">
+                            <input type="hidden" name="item" value="{{ item }}">
+                            <button class="add-button">Add to Grocery List</button>
+                        </form>
                     </div>
                 </li>
             {% endfor %}

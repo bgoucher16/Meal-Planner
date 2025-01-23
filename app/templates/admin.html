@@ -3,9 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Admin - User Search</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}">
 </head>
 <body>
-    Admin page
+    <div class="container">
+        <h2>User Search</h2>
+        <form id="search-user-form" action="{{ url_for('search_user') }}" method="get">
+            <input type="text" id="user" name="user" placeholder="Search Username" required>
+            <button type="submit">Search</button>
+        </form>
+        {% if user %}
+            <div class="user-details">
+                <h3>User Details</h3>
+                <p><strong>Username:</strong> {{ user.username }}</p>
+                <p><strong>Email:</strong> {{ user.email }}</p>
+                <p><strong>Location:</strong> {{ user.location }}</p>
+                <h4>Grocery List</h4>
+                <ul>
+                    {% for item in user.grocery_list %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+                <h4>Favorites</h4>
+                <ul>
+                    {% for item in user.favorites %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+        <p><a href="/">Home</a></p>
+    </div>
 </body>
 </html>
