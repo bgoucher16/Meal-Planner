@@ -9,7 +9,7 @@
 <body>
     <div class="container">
         <h2>Search Recipes</h2>
-        <form id="search-form" action="{{ url_for('search_recipes') }}" method="get">
+        <form id="search-form" action="{{ url_for('user_routes.search_recipes') }}" method="get">
             <input type="text" id="ingredient" name="ingredient" placeholder="Enter an ingredient" required>
             <button type="submit">Search</button>
         </form>
