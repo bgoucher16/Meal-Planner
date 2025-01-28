@@ -38,8 +38,10 @@ def register():
     password = request.form.get('password')
     confirm_password = request.form.get('confirm_password')
     location = request.form.get('location')
+    diet = request.form.get('diet')
+    allergies = request.form.get('allergies')
 
-    if not username or not email or not password or not confirm_password or not location:
+    if not username or not email or not password or not confirm_password:
         flash("All fields are required", "error")
         return redirect(url_for('user_routes.show_register'))
 
@@ -54,9 +56,18 @@ def register():
     if db.users.find_one({"email": email}):
         flash("Email already exists", "error")
         return redirect(url_for('user_routes.show_register'))
+    
+    if diet == "" or allergies == "":
+        diet = []
+        allergies = []
 
     hashed_password = generate_password_hash(password)
-    db.users.insert_one({"username": username, "email": email, "password": hashed_password, "location": location})
+    db.users.insert_one({"username": username, 
+                         "email": email, 
+                         "password": hashed_password, 
+                         "location": location,
+                         "diet": diet,
+                         "allergies": allergies,})
     flash("User registered successfully", "success")
     return redirect(url_for('user_routes.show_login'))
 

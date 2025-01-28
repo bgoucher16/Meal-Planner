@@ -27,9 +27,20 @@
                 <input type="password" id="confirm_password" name="confirm_password" required>
             </div>
             <div class="form-group">
-                <label for="location">Location:</label>
+                <label for="location" style="display: flex; align-items: center; margin-top: -10px;" >Location: <p style="opacity: 60%; font-size: 10px;margin-left: 65%;">Optional</p></label>
                 <input type="text" id="location" name="location" autocomplete="off" onkeyup="autocomplete()">
             </div>
+
+            <div class="form-group">
+                <label for="diet" style="display: flex; align-items: center; margin-top: -10px;" >Diet: <p style="opacity: 60%; font-size: 10px;margin-left: 75%;">Optional</p></label>
+                <input type="text" id="diet" name="confirm_password">
+            </div>
+
+            <div class="form-group">
+                <label for="allergies"style="display: flex; align-items: center; margin-top: -10px;" >Allergies: <p style="opacity: 60%; font-size: 10px;margin-left: 65%;">Optional</p></label>
+                <input type="text" id="allergies" name="allergies">
+            </div>
+
             <button type="submit">Register</button>
 
             <p>Already have an account? <a href="/login">Login</a></p>
