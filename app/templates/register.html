@@ -33,7 +33,15 @@
 
             <div class="form-group">
                 <label for="diet" style="display: flex; align-items: center; margin-top: -10px;" >Diet: <p style="opacity: 60%; font-size: 10px;margin-left: 75%;">Optional</p></label>
-                <input type="text" id="diet" name="confirm_password">
+                <select id="diet" name="diet">
+                    <option value="" disabled selected>Select a diet</option> <!-- Place Holder -->
+                    <option value="vegetarian">Vegetarian</option>
+                    <option value="vegan">Vegan</option>
+                    <option value="gluten_free">Gluten Free</option>
+                    <option value="keto">Keto</option>
+                    <option value="paleo">Paleo</option>
+                    <option value="none">None</option>
+                </select>
             </div>
 
             <div class="form-group">

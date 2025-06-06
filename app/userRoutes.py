@@ -72,6 +72,10 @@ def show_favorites():
 def show_recipes():
     return render_template('recipes.html')
 
+@user_routes.route('/money-spent', methods=['GET'])
+def show_money_spent():
+    return render_template('money_spent.html')
+
 @user_routes.route('/search-recipes', methods=['GET'])
 def search_recipes():
     ingredient = request.args.get('ingredient')
@@ -101,4 +105,18 @@ def search_user():
         flash("User not found", "error")
         return redirect(url_for('show_admin'))
 
-    return render_template('admin.html', user=user)
+        # Aggregate monthly spending
+    spending_records = db.spending.find({"username": username})
+    monthly_spending = {}
+    for record in spending_records:
+        # Format: "Month Year" (e.g., "June 2025")
+        month_year = f"{record['month']:02d}-{record['year']}"
+        total = sum(record.get('values', []))
+        monthly_spending[month_year] = total
+
+    # Pass monthly_spending to the template
+    return render_template(
+        'admin.html',
+        user=user,
+        monthly_spending=monthly_spending if monthly_spending else None
+    )

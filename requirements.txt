@@ -48,13 +48,6 @@ Features
 - **Database Schema:**
 { "userId": "string", "groceryList": [{ "item": "string", "category": "string", "quantity": "number", "inStock": "boolean" }] }
 
-### 5. Pantry Inventory Management
-- **Functionality:**
-  - Track items in stock with quantity and expiration dates.
-  - Notify users of expiring or low-stock items.
-- **Database Schema:**
-{ "userId": "string", "pantryItems": [{ "item": "string", "quantity": "number", "expirationDate": "date" }] }
-
 ### 6. Budget Tracker
 - **Functionality:**
   - Allow users to set a weekly or monthly grocery budget.

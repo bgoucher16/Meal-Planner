@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from functools import wraps
 from bs4 import BeautifulSoup
 from userRoutes import user_routes
+import datetime
 
 load_dotenv()
 
@@ -235,6 +236,57 @@ def grocery_list_unfavorite():
     db.users.update_one({"username": username}, {"$pull": {"favorites": item}})
     flash("Item unfavorited", "success")
     return redirect(url_for('user_routes.show_favorites'))
+
+@app.route('/money-spent', methods=['GET', 'POST'])
+def money_spent():
+    username = session.get('username')
+    if not username:
+        flash("You must be logged in to track spending.", "error")
+        return redirect(url_for('user_routes.show_login'))
+
+    # Get current month and year
+    now = datetime.datetime.now()
+    month = now.month
+    year = now.year
+
+    # Find or create the user's monthly spending record
+    record = db.spending.find_one({"username": username, "month": month, "year": year})
+    if not record:
+        record = {"username": username, "month": month, "year": year, "values": []}
+        db.spending.insert_one(record)
+
+    if request.method == 'POST':
+        if 'reset' in request.form:
+            db.spending.update_one(
+                {"username": username, "month": month, "year": year},
+                {"$set": {"values": []}}
+            )
+            flash("Spending reset for this month.", "success")
+        else:
+            try:
+                amount = float(request.form.get('amount', 0))
+                if amount > 0:
+                    db.spending.update_one(
+                        {"username": username, "month": month, "year": year},
+                        {"$push": {"values": amount}}
+                    )
+                    flash(f"Added ${amount:.2f} to your spending.", "success")
+                else:
+                    flash("Please enter a positive amount.", "error")
+            except ValueError:
+                flash("Invalid amount.", "error")
+        return redirect(url_for('money_spent'))
+
+    # Fetch updated record
+    record = db.spending.find_one({"username": username, "month": month, "year": year})
+    total = sum(record.get('values', []))
+    return render_template(
+        'money_spent.html',
+        values=record.get('values', []),
+        total=total,
+        month=now.strftime('%B'),
+        year=year
+    )
 
 @app.route('/scrape-ingredients', methods=['POST'])
 def scrape_ingredients():

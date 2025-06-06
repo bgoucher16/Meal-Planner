@@ -31,6 +31,18 @@
                         <li>{{ item }}</li>
                     {% endfor %}
                 </ul>
+                <!-- Create a graph based on money spent each month -->
+                <h4>Monthly Spending</h4>
+                <div id="monthly-spending">
+                    {% if monthly_spending %}
+                        <ul>
+                            {% for month, amount in monthly_spending.items() %}
+                                <li>{{ month }}: ${{ '%.2f'|format(amount) }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p>No spending data available.</p>
+                    {% endif %}
             </div>
         {% endif %}
         <p><a href="/">Home</a></p>

@@ -30,7 +30,7 @@ h2 {
     margin-bottom: 5px;
 }
 
-.form-group input {
+.form-group input, .form-group select {
     width: 100%;
     padding: 8px;
     box-sizing: border-box;
