@@ -244,48 +244,72 @@ def money_spent():
         flash("You must be logged in to track spending.", "error")
         return redirect(url_for('user_routes.show_login'))
 
-    # Get current month and year
     now = datetime.datetime.now()
-    month = now.month
-    year = now.year
+    month_key = f"{now.year}-{now.month:02d}"
 
-    # Find or create the user's monthly spending record
-    record = db.spending.find_one({"username": username, "month": month, "year": year})
+    # Find or create the user's spending doc
+    record = db.spending.find_one({"username": username})
     if not record:
-        record = {"username": username, "month": month, "year": year, "values": []}
+        record = {"username": username, "spending": {}, "archive": {}}
         db.spending.insert_one(record)
+
+    # Ensure the month exists in both spending and archive
+    if "spending" not in record:
+        record["spending"] = {}
+    if "archive" not in record:
+        record["archive"] = {}
+    if month_key not in record["spending"]:
+        record["spending"][month_key] = []
+    if month_key not in record["archive"]:
+        record["archive"][month_key] = []
 
     if request.method == 'POST':
         if 'reset' in request.form:
-            db.spending.update_one(
-                {"username": username, "month": month, "year": year},
-                {"$set": {"values": []}}
-            )
-            flash("Spending reset for this month.", "success")
+            # Move current month's spending to archive
+            record = db.spending.find_one({"username": username})  # Refresh in case of changes
+            current_values = record.get("spending", {}).get(month_key, [])
+            if current_values:
+                # Append current values to archive for this month
+                db.spending.update_one(
+                    {"username": username},
+                    {
+                        "$push": {f"archive.{month_key}": {"$each": current_values}},
+                        "$set": {f"spending.{month_key}": []}
+                    }
+                )
+            else:
+                # Just clear if nothing to archive
+                db.spending.update_one(
+                    {"username": username},
+                    {"$set": {f"spending.{month_key}": []}}
+                )
+            flash("Spending archived for this month. Previous data is still available to admin.", "success")
+            return redirect(url_for('money_spent'))
         else:
             try:
                 amount = float(request.form.get('amount', 0))
                 if amount > 0:
                     db.spending.update_one(
-                        {"username": username, "month": month, "year": year},
-                        {"$push": {"values": amount}}
+                        {"username": username},
+                        {"$push": {f"spending.{month_key}": amount}}
                     )
                     flash(f"Added ${amount:.2f} to your spending.", "success")
                 else:
                     flash("Please enter a positive amount.", "error")
             except ValueError:
                 flash("Invalid amount.", "error")
-        return redirect(url_for('money_spent'))
+            return redirect(url_for('money_spent'))
 
     # Fetch updated record
-    record = db.spending.find_one({"username": username, "month": month, "year": year})
-    total = sum(record.get('values', []))
+    record = db.spending.find_one({"username": username})
+    values = record.get("spending", {}).get(month_key, [])
+    total = sum(values)
     return render_template(
         'money_spent.html',
-        values=record.get('values', []),
+        values=values,
         total=total,
         month=now.strftime('%B'),
-        year=year
+        year=now.year
     )
 
 @app.route('/scrape-ingredients', methods=['POST'])

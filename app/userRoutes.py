@@ -98,23 +98,25 @@ def search_user():
     username = request.args.get('user')
     if not username:
         flash("Please enter a username", "error")
-        return redirect(url_for('show_admin'))
+        return redirect(url_for('user_routes.show_admin'))
 
     user = db.users.find_one({"username": username})
     if not user:
         flash("User not found", "error")
-        return redirect(url_for('show_admin'))
+        return redirect(url_for('user_routes.show_admin'))
 
-        # Aggregate monthly spending
-    spending_records = db.spending.find({"username": username})
+    # Get all spending data for this user
+    spending_record = db.spending.find_one({"username": username})
     monthly_spending = {}
-    for record in spending_records:
-        # Format: "Month Year" (e.g., "June 2025")
-        month_year = f"{record['month']:02d}-{record['year']}"
-        total = sum(record.get('values', []))
-        monthly_spending[month_year] = total
+    if spending_record and "spending" in spending_record:
+        for month, values in spending_record["spending"].items():
+            monthly_spending[month] = sum(values)
+    if spending_record and "archive" in spending_record:
+        for month, values in spending_record["archive"].items():
+            if month not in monthly_spending:
+                monthly_spending[month] = 0
+            monthly_spending[month] += sum(values)
 
-    # Pass monthly_spending to the template
     return render_template(
         'admin.html',
         user=user,
