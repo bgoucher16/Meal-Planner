@@ -2,39 +2,49 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Home</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='home.css') }}">
+    <title>Meal Planner Home</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
-    <header>
-        <div class="logo">Preppr</div>
-        <nav>
-            <ul>
-                <li><a href="/grocery-list">Grocery List</a></li>
-                <li><a href="/favorites">Favorites</a></li>
-                <li><a href="/recipes">Recipes</a></li>
-                <li><a href="/money-spent">Budget</li>
-                <li class="logout"><a href="/logout">Logout</a></li>
-            </ul>
-        </nav>
-    </header>
     <div class="container">
-        <div class="list-container">
-            <h3>Grocery List</h3>
-            <ul>
-                {% for item in grocery_list[:10] %}
-                    <li>{{ item }}</li>
-                {% endfor %}
-            </ul>
+        <h2>Welcome{{ ', ' + user.username if user and user.username else '' }}!</h2>
+        <div class="card" style="display: flex; gap: 24px; flex-wrap: wrap;">
+            <div style="flex:1; min-width:220px;">
+                <h3>Quick Actions</h3>
+                    <ul class="quick-actions-list">
+                        <li><a class="quick-action-btn" href="{{ url_for('user_routes.show_grocery_list') }}">View Grocery List</a></li>
+                        <li><a class="quick-action-btn" href="{{ url_for('user_routes.show_favorites') }}">View Favorites</a></li>
+                        <li><a class="quick-action-btn" href="{{ url_for('user_routes.show_recipes') }}">Find Recipes</a></li>
+                        <li><a class="quick-action-btn" href="{{ url_for('money_spent') }}">Track Spending</a></li>
+                    </ul>
+            </div>
+            <div style="flex:2; min-width:260px;">
+                <h3>This Month's Grocery List</h3>
+                {% if grocery_list %}
+                    <ul>
+                        {% for item in grocery_list %}
+                            <li>{{ item }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>No items in your grocery list yet.</p>
+                {% endif %}
+            </div>
         </div>
-        <div class="list-container">
-            <h3>Favorites</h3>
-            <ul>
-                {% for item in favorites[:10] %}
-                    <li>{{ item }}</li>
-                {% endfor %}
-            </ul>
+        <div class="card">
+            <h3>Your Favorites</h3>
+            {% if favorites %}
+                <ul>
+                    {% for item in favorites %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>No favorites yet. Add some from your grocery list or recipes!</p>
+            {% endif %}
+        </div>
+        <div style="text-align:center; margin-top:32px;">
+            <a href="{{ url_for('user_routes.logout') }}" class="btn">Logout</a>
         </div>
     </div>
 </body>

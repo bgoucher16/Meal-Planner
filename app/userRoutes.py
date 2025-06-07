@@ -88,6 +88,17 @@ def search_recipes():
     response = requests.get(url)
     if response.status_code == 200:
         recipes = response.json().get('results', [])
+        # for each recipe check to see if any of the ingredients are in the users allegeries
+        username = session.get('username')
+        user = db.users.find_one({"username": username})
+        if user and 'allergies' in user:
+            allergies = user['allergies']
+            for recipe in recipes:
+                recipe['has_allergy'] = any(allergy.lower() in (ingredient.lower() for ingredient in recipe.get('extendedIngredients', [])) for allergy in allergies)
+        else:
+            for recipe in recipes:
+                recipe['has_allergy'] = False
+
         return render_template('recipes.html', recipes=recipes, ingredient=ingredient)
     else:
         flash("Failed to fetch recipes", "error")

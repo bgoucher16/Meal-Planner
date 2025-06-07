@@ -4,23 +4,71 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monthly Spending Tracker</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='money_spent.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        .spending-list {
+            margin-top: 24px;
+        }
+        .spending-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 18px;
+            background: #f3f6fa;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(60, 72, 88, 0.04);
+            margin-bottom: 12px;
+            min-height: 48px;
+        }
+        .amount-value {
+            flex: 1;
+            font-size: 1.08em;
+            padding: 12px 0;
+        }
+        .date-value {
+            color: #64748b;
+            font-size: 0.98em;
+            padding-left: 12px;
+            white-space: nowrap;
+        }
+        @media (max-width: 600px) {
+            .spending-item {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+                padding: 0 8px;
+            }
+            .date-value {
+                padding-left: 0;
+                padding-bottom: 8px;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
         <h2>Spending for {{ month }} {{ year }}</h2>
-        <div>Total this month: ${{ '%.2f'|format(total) }}</div>
-        <form method="POST" action="{{ url_for('money_spent') }}">
+        <div style="margin-bottom:18px;">Total this month: <strong>${{ '%.2f'|format(total) }}</strong></div>
+        <form method="POST" action="{{ url_for('money_spent') }}" style="display:flex; gap:12px; margin-bottom:12px;">
             <input type="number" name="amount" step="0.01" min="0" placeholder="Enter amount" required>
             <button type="submit">Add</button>
         </form>
-        <form method="POST" action="{{ url_for('money_spent') }}">
+        <form method="POST" action="{{ url_for('money_spent') }}" style="margin-bottom:24px;">
             <input type="hidden" name="reset" value="1">
-            <button type="submit">Reset for New Month</button>
+            <button type="submit" style="background:#ef4444;">Reset for New Month</button>
         </form>
-        <ul>
-            {% for val in values %}
-                <li>${{ '%.2f'|format(val) }}</li>
+        <ul class="spending-list">
+            {% for entry in values %}
+                <li class="spending-item">
+                    <span class="amount-value">
+                        ${{ '%.2f'|format(entry.amount if entry is mapping else entry) }}
+                    </span>
+                    <span class="date-value">
+                        {% if entry is mapping and entry.date %}
+                            {{ entry.date }}
+                        {% endif %}
+                    </span>
+                </li>
             {% endfor %}
         </ul>
         <p><a href="{{ url_for('user_routes.show_home') }}">Home</a></p>

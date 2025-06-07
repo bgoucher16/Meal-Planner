@@ -4,7 +4,33 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Recipes</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='recipes.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        .recipes-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+        .recipe-card {
+            background: #f8fafc;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(60, 72, 88, 0.06);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .recipe-card img {
+            max-width: 100%;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+        @media (max-width: 900px) {
+            .recipes-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -16,16 +42,16 @@
         <div id="recipes">
             {% if recipes %}
                 <h3>Recipes with {{ ingredient }}</h3>
-                <ul>
+                <div class="recipes-grid">
                     {% for recipe in recipes %}
-                        <li>
+                        <div class="recipe-card">
                             <h4>{{ recipe.title }}</h4>
                             <img src="{{ recipe.image }}" alt="{{ recipe.title }}">
                             <p><a href="{{ recipe.sourceUrl }}" target="_blank">View Recipe</a></p>
                             <button onclick="addIngredientsToGroceryList('{{ recipe.sourceUrl }}')">Add Ingredients to Grocery List</button>
-                        </li>
+                        </div>
                     {% endfor %}
-                </ul>
+                </div>
             {% endif %}
         </div>
         <p><a href="/">Home</a></p>

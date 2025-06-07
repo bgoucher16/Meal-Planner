@@ -269,16 +269,19 @@ def money_spent():
             record = db.spending.find_one({"username": username})  # Refresh in case of changes
             current_values = record.get("spending", {}).get(month_key, [])
             if current_values:
-                # Append current values to archive for this month
+                # Only store the amount in archive (strip date if present)
+                archive_values = [
+                    v["amount"] if isinstance(v, dict) and "amount" in v else v
+                    for v in current_values
+                ]
                 db.spending.update_one(
                     {"username": username},
                     {
-                        "$push": {f"archive.{month_key}": {"$each": current_values}},
+                        "$push": {f"archive.{month_key}": {"$each": archive_values}},
                         "$set": {f"spending.{month_key}": []}
                     }
                 )
             else:
-                # Just clear if nothing to archive
                 db.spending.update_one(
                     {"username": username},
                     {"$set": {f"spending.{month_key}": []}}
@@ -289,9 +292,14 @@ def money_spent():
             try:
                 amount = float(request.form.get('amount', 0))
                 if amount > 0:
+                    # Store amount with date
+                    entry = {
+                        "amount": amount,
+                        "date": now.strftime("%Y-%m-%d")
+                    }
                     db.spending.update_one(
                         {"username": username},
-                        {"$push": {f"spending.{month_key}": amount}}
+                        {"$push": {f"spending.{month_key}": entry}}
                     )
                     flash(f"Added ${amount:.2f} to your spending.", "success")
                 else:
@@ -303,7 +311,12 @@ def money_spent():
     # Fetch updated record
     record = db.spending.find_one({"username": username})
     values = record.get("spending", {}).get(month_key, [])
-    total = sum(values)
+    # For backward compatibility: if any value is a float/int, convert to dict with no date
+    values = [
+        v if isinstance(v, dict) else {"amount": v, "date": ""}
+        for v in values
+    ]
+    total = sum(v["amount"] for v in values)
     return render_template(
         'money_spent.html',
         values=values,
