@@ -10,6 +10,7 @@ from functools import wraps
 from bs4 import BeautifulSoup
 from userRoutes import user_routes
 import datetime
+import random
 
 load_dotenv()
 
@@ -359,6 +360,38 @@ def scrape_ingredients():
 
     # Add ingredients to the grocery list
     return jsonify({"msg": "Ingredients added to grocery list"}), 200
+
+def get_cached_daily_spoonacular_recipes():
+    global daily_recipe_cache
+    today = datetime.utcnow().strftime('%Y-%m-%d')
+
+    if daily_recipe_cache["date"] == today and daily_recipe_cache["recipes"]:
+        return daily_recipe_cache["recipes"]
+
+    # Otherwise fetch new recipes
+    api_key = os.getenv("SPOONACULAR_API_KEY")
+    seed = int(datetime.utcnow().strftime('%Y%m%d'))
+    random.seed(seed)
+    offset = random.randint(0, 100)
+
+    response = requests.get(
+        "https://api.spoonacular.com/recipes/complexSearch",
+        params={
+            "apiKey": api_key,
+            "number": 5,
+            "offset": offset,
+            "addRecipeInformation": True,
+            "sort": "random"
+        }
+    )
+
+    if response.status_code == 200:
+        recipes = response.json().get("results", [])
+        daily_recipe_cache["date"] = today
+        daily_recipe_cache["recipes"] = recipes
+        return recipes
+    else:
+        return []  # Return empty if API call fails
 
 # Register the blueprint
 app.register_blueprint(user_routes, url_prefix='/')

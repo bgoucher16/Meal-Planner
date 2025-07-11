@@ -3,6 +3,8 @@ from pymongo import MongoClient
 from flask_jwt_extended import jwt_required
 import requests
 import os
+import random
+from datetime import datetime
 
 user_routes = Blueprint('user_routes', __name__)
 
@@ -10,6 +12,45 @@ user_routes = Blueprint('user_routes', __name__)
 mongo_uri = os.getenv("MONGO_URI")
 client = MongoClient(mongo_uri)
 db = client.meal_planner_db
+
+# Cache object
+daily_recipe_cache = {
+    "date": None,
+    "recipes": []
+}
+
+def get_cached_daily_spoonacular_recipes():
+    """Fetch 5 daily random Spoonacular recipes and cache them for 24 hours."""
+    global daily_recipe_cache
+    today = datetime.utcnow().strftime('%Y-%m-%d')
+
+    if daily_recipe_cache["date"] == today and daily_recipe_cache["recipes"]:
+        return daily_recipe_cache["recipes"]
+
+    # Otherwise fetch new
+    api_key = os.getenv("SPOONACULAR_API_KEY")
+    seed = int(datetime.utcnow().strftime('%Y%m%d'))
+    random.seed(seed)
+    offset = random.randint(0, 100)
+
+    response = requests.get(
+        "https://api.spoonacular.com/recipes/complexSearch",
+        params={
+            "apiKey": api_key,
+            "number": 5,
+            "offset": offset,
+            "addRecipeInformation": True,
+            "sort": "random"
+        }
+    )
+
+    if response.status_code == 200:
+        recipes = response.json().get("results", [])
+        daily_recipe_cache["date"] = today
+        daily_recipe_cache["recipes"] = recipes
+        return recipes
+    else:
+        return []
 
 @user_routes.route('/')
 def show_home():
@@ -25,7 +66,14 @@ def show_home():
 
     grocery_list = user.get('grocery_list', [])
     favorites = user.get('favorites', [])
-    return render_template('home.html', grocery_list=grocery_list, favorites=favorites)
+
+    recommended = get_cached_daily_spoonacular_recipes()
+
+    return render_template('home.html', 
+                           grocery_list=grocery_list, 
+                           favorites=favorites,
+                           recommended=recommended,
+                           username=username)
 
 @user_routes.route('/logout', methods=['GET'])
 def logout():

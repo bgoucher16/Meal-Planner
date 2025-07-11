@@ -8,17 +8,33 @@
 <body>
     <div class="container">
         <h2>Welcome{{ ', ' + user.username if user and user.username else '' }}!</h2>
-        <div class="card" style="display: flex; gap: 24px; flex-wrap: wrap;">
-            <div style="flex:1; min-width:220px;">
-                <h3>Quick Actions</h3>
-                    <ul class="quick-actions-list">
-                        <li><a class="quick-action-btn" href="{{ url_for('user_routes.show_grocery_list') }}">View Grocery List</a></li>
-                        <li><a class="quick-action-btn" href="{{ url_for('user_routes.show_favorites') }}">View Favorites</a></li>
-                        <li><a class="quick-action-btn" href="{{ url_for('user_routes.show_recipes') }}">Find Recipes</a></li>
-                        <li><a class="quick-action-btn" href="{{ url_for('money_spent') }}">Track Spending</a></li>
-                    </ul>
+
+        <!-- Quick Actions Bar -->
+        <div class="quick-actions-bar">
+            <a class="quick-action-btn" href="{{ url_for('user_routes.show_grocery_list') }}">🛒 View Grocery List</a>
+            <a class="quick-action-btn" href="{{ url_for('user_routes.show_favorites') }}">❤️ View Favorites</a>
+            <a class="quick-action-btn" href="{{ url_for('user_routes.show_recipes') }}">📖 Find Recipes</a>
+            <a class="quick-action-btn" href="{{ url_for('money_spent') }}">💵 Track Spending</a>
+            <a class="quick-action-btn" href="{{ url_for('user_routes.logout') }}">🔓 Logout</a>
+        </div>
+
+        <!-- Recommended Section -->
+        <div class="recommended-section">
+            <h3>Recommended for You</h3>
+            <div class="recipes-grid">
+                {% for recipe in recommended %}
+                    <div class="recipe-card">
+                        <strong>{{ recipe.title }}</strong>
+                        <img src="{{ recipe.image }}" alt="{{ recipe.title }}" style="max-width: 100%; margin-bottom: 12px;">
+                        <a href="{{ recipe.sourceUrl }}" target="_blank">View Full Recipe</a>
+                    </div>
+                {% endfor %}
             </div>
-            <div style="flex:2; min-width:260px;">
+        </div>
+
+        <!-- Bottom Grid for Grocery List and Favorites -->
+        <div class="bottom-grid">
+            <div class="card">
                 <h3>This Month's Grocery List</h3>
                 {% if grocery_list %}
                     <ul>
@@ -30,22 +46,66 @@
                     <p>No items in your grocery list yet.</p>
                 {% endif %}
             </div>
-        </div>
-        <div class="card">
-            <h3>Your Favorites</h3>
-            {% if favorites %}
-                <ul>
-                    {% for item in favorites %}
-                        <li>{{ item }}</li>
-                    {% endfor %}
-                </ul>
-            {% else %}
-                <p>No favorites yet. Add some from your grocery list or recipes!</p>
-            {% endif %}
-        </div>
-        <div style="text-align:center; margin-top:32px;">
-            <a href="{{ url_for('user_routes.logout') }}" class="btn">Logout</a>
+
+            <div class="card">
+                <h3>Your Favorites</h3>
+                {% if favorites %}
+                    <ul>
+                        {% for item in favorites %}
+                            <li>{{ item }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>No favorites yet. Add some from your grocery list or recipes!</p>
+                {% endif %}
+            </div>
         </div>
     </div>
+    <script>
+        document.querySelectorAll('.recipe-card strong').forEach(function (title) {
+            if (!title.querySelector('span')) {
+                const span = document.createElement('span');
+                span.textContent = title.textContent;
+                title.textContent = '';
+                title.appendChild(span);
+            }
+
+            const span = title.querySelector('span');
+            let animationFrame;
+            let start = null;
+            let distance = 0;
+            let duration = 1500;
+
+            title.addEventListener('mouseenter', function () {
+                if (span.scrollWidth > title.clientWidth) {
+                    distance = span.scrollWidth - title.clientWidth;
+                    start = null;
+
+                    function animateSlide(timestamp) {
+                        if (!start) start = timestamp;
+                        let elapsed = timestamp - start;
+                        let progress = Math.min(elapsed / duration, 1);
+
+                        // Ease out (cubic)
+                        let easedProgress = 1 - Math.pow(1 - progress, 3);
+                        span.style.transform = `translateX(-${Math.round(easedProgress * distance)}px)`;
+
+                        if (progress < 1) {
+                            animationFrame = requestAnimationFrame(animateSlide);
+                        }
+                    }
+
+                    animationFrame = requestAnimationFrame(animateSlide);
+                }
+            });
+
+            title.addEventListener('mouseleave', function () {
+                cancelAnimationFrame(animationFrame);
+                span.style.transition = 'transform 0.3s ease-out';
+                span.style.transform = 'translateX(0)';
+            });
+        });
+
+    </script>
 </body>
 </html>
