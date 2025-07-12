@@ -66,6 +66,7 @@ def show_home():
 
     grocery_list = user.get('grocery_list', [])
     favorites = user.get('favorites', [])
+    monthly_budget = user.get('monthly_budget', "")
 
     recommended = get_cached_daily_spoonacular_recipes()
 
@@ -73,6 +74,7 @@ def show_home():
                            grocery_list=grocery_list, 
                            favorites=favorites,
                            recommended=recommended,
+                           monthly_budget=monthly_budget,
                            username=username)
 
 @user_routes.route('/logout', methods=['GET'])

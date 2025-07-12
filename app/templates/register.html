@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='register.css') }}">
 </head>
 <body>
     <div class="container">
@@ -48,6 +48,10 @@
                 <label for="allergies"style="display: flex; align-items: center; margin-top: -10px;" >Allergies: <p style="opacity: 60%; font-size: 10px;margin-left: 65%;">Optional</p></label>
                 <input type="text" id="allergies" name="allergies">
             </div>
+
+            <div class="form-group">
+                <label for="monthley_budget" style="display: flex; align-items: center; margin-top: -10px;" >Monthly Budget: <p style="opacity: 60%; font-size: 10px;margin-left: 50%;">Optional</p></label>
+                <input type="text" id="monthley_budget" name="monthley_budget" step="0.01" min="0">
 
             <button type="submit">Register</button>
 

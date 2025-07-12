@@ -42,6 +42,7 @@ def register():
     location = request.form.get('location')
     diet = request.form.get('diet')
     allergies = request.form.get('allergies')
+    monthley_budget = request.form.get('monthley_budget')
 
     if not username or not email or not password or not confirm_password:
         flash("All fields are required", "error")
@@ -69,7 +70,8 @@ def register():
                          "password": hashed_password, 
                          "location": location,
                          "diet": diet,
-                         "allergies": allergies,})
+                         "allergies": allergies,
+                         "monthly_budget": monthley_budget,})
     flash("User registered successfully", "success")
     return redirect(url_for('user_routes.show_login'))
 
