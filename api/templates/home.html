@@ -14,11 +14,11 @@
 
         <!-- Quick Actions Bar -->
         <div class="quick-actions-bar">
-            <a class="quick-action-btn" href="{{ url_for('user_routes.show_grocery_list') }}">🛒 View Grocery List</a>
-            <a class="quick-action-btn" href="{{ url_for('user_routes.show_favorites') }}">❤️ View Favorites</a>
-            <a class="quick-action-btn" href="{{ url_for('user_routes.show_recipes') }}">📖 Find Recipes</a>
+            <a class="quick-action-btn" href="{{ url_for('show_grocery_list') }}">🛒 View Grocery List</a>
+            <a class="quick-action-btn" href="{{ url_for('show_favorites') }}">❤️ View Favorites</a>
+            <a class="quick-action-btn" href="{{ url_for('show_recipes') }}">📖 Find Recipes</a>
             <a class="quick-action-btn" href="{{ url_for('money_spent') }}">💵 Track Spending</a>
-            <a class="quick-action-btn" href="{{ url_for('user_routes.logout') }}">🔓 Logout</a>
+            <a class="quick-action-btn" href="{{ url_for('logout') }}">🔓 Logout</a>
         </div>
 
         <!-- Recommended Section -->
