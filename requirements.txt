@@ -1,1 +1,8 @@
 Flask==3.0.3
+requests
+flask-cors
+flask-jwt-extended
+werkzeug
+pymongo
+python-dotenv
+beautifulsoup4
