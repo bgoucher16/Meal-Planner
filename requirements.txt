@@ -1,3 +1,4 @@
+Flask==3.0.3
 Meal Planner with Grocery List App: Development Document
 Overview
 The Meal Planner with Grocery List App is designed to simplify meal planning and grocery shopping. It helps users create weekly meal plans, manage grocery lists, track pantry inventory, and monitor budgets while adhering to dietary preferences and restrictions. This document outlines the technical implementation for the web application version of the app.
