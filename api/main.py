@@ -70,7 +70,7 @@ def show_home():
         return redirect(url_for('show_login'))
 
     user_resp = supabase.table("users").select("*").eq("username", username).execute()
-    users = user_resp.data if user_resp.data else None
+    users = user_resp.data if user_resp.data else []
     if not users:
         flash("User not found", "error")
         return redirect(url_for('show_login'))
@@ -173,7 +173,7 @@ def show_login():
     user_resp = supabase.table("users").select("*").eq("username", username).execute()
     users = user_resp.data if user_resp.data else []
     if not users:
-        flash("Invalid username or password", "error")
+        flash("User not found", "error")
         return redirect(url_for('show_login'))
     user = users[0]
     if not check_password_hash(user['password'], password):
@@ -198,8 +198,81 @@ def show_grocery_list():
         return redirect(url_for('show_login'))
 
     user_resp = supabase.table("users").select("grocery_list").eq("username", username).execute()
-    grocery_list = user_resp.data.get('grocery_list', []) if user_resp.data else []
+    users = user_resp.data if user_resp.data else []
+    grocery_list = users[0]['grocery_list'] if users and 'grocery_list' in users[0] else []
     return render_template('grocery_list.html', grocery_list=grocery_list)
+
+@app.route('/grocery-list/add', methods=['POST'])
+def grocery_list_add():
+    username = session.get('username')
+    if not username:
+        flash("You must be logged in", "error")
+        return redirect(url_for('show_login'))
+
+    item = request.form.get('item')
+    if not item:
+        flash("Item cannot be empty", "error")
+        return redirect(url_for('show_grocery_list'))
+
+    user_resp = supabase.table("users").select("grocery_list").eq("username", username).execute()
+    users = user_resp.data if user_resp.data else []
+    grocery_list = users[0]['grocery_list'] if users and 'grocery_list' in users[0] else []
+    
+    grocery_list.append(item.lower())
+    supabase.table("users").update({"grocery_list": grocery_list}).eq("username", username).execute()
+
+    flash(f"Added '{item}' to grocery list", "success")
+    return redirect(url_for('show_grocery_list'))
+
+@app.route('/grocery-list/remove', methods=['POST'])
+def grocery_list_delete():
+    username = session.get('username')
+    if not username:
+        flash("You must be logged in", "error")
+        return redirect(url_for('show_login'))
+
+    item = request.form.get('item')
+    if not item:
+        flash("Item cannot be empty", "error")
+        return redirect(url_for('show_grocery_list'))
+
+    user_resp = supabase.table("users").select("grocery_list").eq("username", username).execute()
+    users = user_resp.data if user_resp.data else []
+    grocery_list = users[0]['grocery_list'] if users and 'grocery_list' in users[0] else []
+
+    if item.lower() in grocery_list:
+        grocery_list.remove(item.lower())
+        supabase.table("users").update({"grocery_list": grocery_list}).eq("username", username).execute()
+        flash(f"Removed '{item}' from grocery list", "success")
+    else:
+        flash(f"'{item}' not found in grocery list", "error")
+
+    return redirect(url_for('show_grocery_list'))
+
+@app.route('/grocery-list/favorite', methods=['POST'])
+def grocery_list_favorite():
+    username = session.get('username')
+    if not username:
+        flash("You must be logged in", "error")
+        return redirect(url_for('show_login'))
+
+    item = request.form.get('item')
+    if not item:
+        flash("Item cannot be empty", "error")
+        return redirect(url_for('show_grocery_list'))
+
+    user_resp = supabase.table("users").select("favorites").eq("username", username).execute()
+    users = user_resp.data if user_resp.data else []
+    favorites = users[0]['favorites'] if users and 'favorites' in users[0] else []
+
+    if item.lower() not in favorites:
+        favorites.append(item.lower())
+        supabase.table("users").update({"favorites": favorites}).eq("username", username).execute()
+        flash(f"Added '{item}' to favorites", "success")
+    else:
+        flash(f"'{item}' is already in favorites", "error")
+
+    return redirect(url_for('show_grocery_list'))
 
 @app.route('/favorites')
 def show_favorites():
@@ -209,7 +282,8 @@ def show_favorites():
         return redirect(url_for('show_login'))
 
     user_resp = supabase.table("users").select("favorites").eq("username", username).execute()
-    favorites = user_resp.data.get('favorites', []) if user_resp.data else []
+    users = user_resp.data if user_resp.data else []
+    favorites = users[0]['favorites'] if users and 'favorites' in users[0] else []
     return render_template('favorites.html', favorites=favorites)
 
 @app.route('/recipes')
@@ -280,7 +354,8 @@ def search_recipes():
         recipes = response.json().get('results', [])
         username = session.get('username')
         user_resp = supabase.table("users").select("allergies").eq("username", username).execute()
-        allergies = user_resp.data.get('allergies', []) if user_resp.data else []
+        users = user_resp.data if user_resp.data else []
+        allergies = users[0]['allergies'] if users and 'allergies' in users[0] else []
         for recipe in recipes:
             recipe['has_allergy'] = any(allergy.lower() in str(recipe).lower() for allergy in allergies)
         return render_template('recipes.html', recipes=recipes, ingredient=ingredient)

@@ -63,7 +63,7 @@
 <body>
     <div class="container">
         <h2>Grocery List</h2>
-        <form id="add-item-form" action="{{ url_for('show_grocery_list') }}" method="post">
+        <form id="add-item-form" action="{{ url_for('grocery_list_add') }}" method="post">
             <input type="text" id="item" name="item" placeholder="Add item" required>
             <button type="submit">Add</button>
         </form>
