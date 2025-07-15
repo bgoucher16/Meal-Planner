@@ -4,12 +4,13 @@ from flask import Flask, request, jsonify, render_template, redirect, url_for, s
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, verify_jwt_in_request
 from werkzeug.security import generate_password_hash, check_password_hash
-from pymongo import MongoClient
 from dotenv import load_dotenv
 from functools import wraps
 from bs4 import BeautifulSoup
 import datetime
 import random
+
+from supabase import create_client, Client
 
 load_dotenv()
 
@@ -19,14 +20,10 @@ app.config['JWT_SECRET_KEY'] = os.getenv("JWT_SECRET_KEY")
 CORS(app)
 jwt = JWTManager(app)
 
-# MongoDB setup
-mongo_uri = os.getenv("MONGO_URI")
-client = MongoClient(mongo_uri)
-db = client.meal_planner_db
-
-# Ensure collections exist
-if 'users' not in db.list_collection_names():
-    db.create_collection('users')
+# Supabase setup
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Cache object
 daily_recipe_cache = {
@@ -72,13 +69,14 @@ def show_home():
         flash("You must be logged in to view the home page", "error")
         return redirect(url_for('show_login'))
 
-    user = db.users.find_one({"username": username})
-    if not user:
+    user_resp = supabase.table("users").select("*").eq("username", username).execute()
+    users = user_resp.data if user_resp.data else None
+    if not users:
         flash("User not found", "error")
         return redirect(url_for('show_login'))
-
-    grocery_list = user.get('grocery_list', [])
-    favorites = user.get('favorites', [])
+    user = users[0]
+    grocery_list = user.get('grocery_list', []) or []
+    favorites = user.get('favorites', []) or []
     monthly_budget = user.get('monthly_budget', "")
 
     recommended = get_cached_daily_spoonacular_recipes()
@@ -119,11 +117,12 @@ def register():
         flash("Passwords do not match", "error")
         return redirect(url_for('register'))
 
-    if db.users.find_one({"username": username}):
+    user_exists = supabase.table("users").select("id").eq("username", username).execute().data
+    email_exists = supabase.table("users").select("id").eq("email", email).execute().data
+    if user_exists:
         flash("Username already exists", "error")
         return redirect(url_for('register'))
-
-    if db.users.find_one({"email": email}):
+    if email_exists:
         flash("Email already exists", "error")
         return redirect(url_for('register'))
 
@@ -132,7 +131,7 @@ def register():
         allergies = []
 
     hashed_password = generate_password_hash(password)
-    db.users.insert_one({
+    supabase.table("users").insert({
         "username": username,
         "email": email,
         "password": hashed_password,
@@ -140,7 +139,15 @@ def register():
         "diet": diet,
         "allergies": allergies,
         "monthly_budget": monthley_budget,
-    })
+        "grocery_list": [],
+        "favorites": []
+    }).execute()
+
+    supabase.table("spending").insert({
+        "username": username,
+        "spending": [],
+        "archive": []
+    }).execute()
 
     flash("User registered successfully", "success")
     return redirect(url_for('show_login'))
@@ -163,8 +170,13 @@ def show_login():
         flash("Username and password are required", "error")
         return redirect(url_for('show_login'))
 
-    user = db.users.find_one({"username": username})
-    if not user or not check_password_hash(user['password'], password):
+    user_resp = supabase.table("users").select("*").eq("username", username).execute()
+    users = user_resp.data if user_resp.data else []
+    if not users:
+        flash("Invalid username or password", "error")
+        return redirect(url_for('show_login'))
+    user = users[0]
+    if not check_password_hash(user['password'], password):
         flash("Invalid username or password", "error")
         return redirect(url_for('show_login'))
 
@@ -185,8 +197,8 @@ def show_grocery_list():
         flash("You must be logged in", "error")
         return redirect(url_for('show_login'))
 
-    user = db.users.find_one({"username": username})
-    grocery_list = user.get('grocery_list', [])
+    user_resp = supabase.table("users").select("grocery_list").eq("username", username).execute()
+    grocery_list = user_resp.data.get('grocery_list', []) if user_resp.data else []
     return render_template('grocery_list.html', grocery_list=grocery_list)
 
 @app.route('/favorites')
@@ -196,8 +208,8 @@ def show_favorites():
         flash("You must be logged in", "error")
         return redirect(url_for('show_login'))
 
-    user = db.users.find_one({"username": username})
-    favorites = user.get('favorites', [])
+    user_resp = supabase.table("users").select("favorites").eq("username", username).execute()
+    favorites = user_resp.data.get('favorites', []) if user_resp.data else []
     return render_template('favorites.html', favorites=favorites)
 
 @app.route('/recipes')
@@ -214,32 +226,32 @@ def money_spent():
     now = datetime.datetime.now()
     month_key = f"{now.year}-{now.month:02d}"
 
-    record = db.spending.find_one({"username": username})
+    record_resp = supabase.table("spending").select("*").eq("username", username).execute()
+    record = record_resp.data if record_resp.data else None
     if not record:
         record = {"username": username, "spending": {}, "archive": {}}
-        db.spending.insert_one(record)
+        supabase.table("spending").insert(record).execute()
 
     if request.method == 'POST':
         if 'reset' in request.form:
             current_values = record.get("spending", {}).get(month_key, [])
             archive_values = [v["amount"] if isinstance(v, dict) else v for v in current_values]
-            db.spending.update_one(
-                {"username": username},
-                {
-                    "$push": {f"archive.{month_key}": {"$each": archive_values}},
-                    "$set": {f"spending.{month_key}": []}
-                }
-            )
+            new_archive = record.get("archive", {})
+            new_archive[month_key] = new_archive.get(month_key, []) + archive_values
+            supabase.table("spending").update({
+                "archive": new_archive,
+                "spending": {**record.get("spending", {}), month_key: []}
+            }).eq("username", username).execute()
             flash("Spending archived", "success")
         else:
             try:
                 amount = float(request.form.get('amount', 0))
                 if amount > 0:
                     entry = {"amount": amount, "date": now.strftime("%Y-%m-%d")}
-                    db.spending.update_one(
-                        {"username": username},
-                        {"$push": {f"spending.{month_key}": entry}}
-                    )
+                    spending = record.get("spending", {})
+                    spending.setdefault(month_key, [])
+                    spending[month_key].append(entry)
+                    supabase.table("spending").update({"spending": spending}).eq("username", username).execute()
                     flash(f"Added ${amount:.2f}", "success")
                 else:
                     flash("Please enter a positive amount.", "error")
@@ -247,7 +259,8 @@ def money_spent():
                 flash("Invalid amount.", "error")
         return redirect(url_for('money_spent'))
 
-    record = db.spending.find_one({"username": username})
+    record_resp = supabase.table("spending").select("*").eq("username", username).execute()
+    record = record_resp.data if record_resp.data else {}
     values = record.get("spending", {}).get(month_key, [])
     values = [v if isinstance(v, dict) else {"amount": v, "date": ""} for v in values]
     total = sum(v["amount"] for v in values)
@@ -266,8 +279,8 @@ def search_recipes():
     if response.status_code == 200:
         recipes = response.json().get('results', [])
         username = session.get('username')
-        user = db.users.find_one({"username": username})
-        allergies = user.get('allergies', []) if user else []
+        user_resp = supabase.table("users").select("allergies").eq("username", username).execute()
+        allergies = user_resp.data.get('allergies', []) if user_resp.data else []
         for recipe in recipes:
             recipe['has_allergy'] = any(allergy.lower() in str(recipe).lower() for allergy in allergies)
         return render_template('recipes.html', recipes=recipes, ingredient=ingredient)
@@ -282,18 +295,20 @@ def search_user():
         flash("Please enter a username", "error")
         return redirect(url_for('show_admin'))
 
-    user = db.users.find_one({"username": username})
+    user_resp = supabase.table("users").select("*").eq("username", username).execute()
+    user = user_resp.data if user_resp.data else None
     if not user:
         flash("User not found", "error")
         return redirect(url_for('show_admin'))
 
-    spending_record = db.spending.find_one({"username": username})
+    spending_resp = supabase.table("spending").select("*").eq("username", username).execute()
+    spending_record = spending_resp.data if spending_resp.data else {}
     monthly_spending = {}
     if spending_record:
         for month, values in spending_record.get("spending", {}).items():
-            monthly_spending[month] = sum(values)
+            monthly_spending[month] = sum([v["amount"] if isinstance(v, dict) else v for v in values])
         for month, values in spending_record.get("archive", {}).items():
-            monthly_spending[month] = monthly_spending.get(month, 0) + sum(values)
+            monthly_spending[month] = monthly_spending.get(month, 0) + sum([v if isinstance(v, (int, float)) else v.get("amount", 0) for v in values])
 
     return render_template('admin.html', user=user, monthly_spending=monthly_spending or None)
 
@@ -307,9 +322,8 @@ def scrape_ingredients():
     if not username:
         return jsonify({"msg": "You must be logged in"}), 401
 
-    user = db.users.find_one({"username": username})
-    if not user:
-        return jsonify({"msg": "User not found"}), 404
+    user_resp = supabase.table("users").select("grocery_list").eq("username", username).execute()
+    grocery_list = user_resp.data.get('grocery_list', []) if user_resp.data else []
 
     url = request.json.get('url')
     if not url:
@@ -321,14 +335,19 @@ def scrape_ingredients():
 
     soup = BeautifulSoup(response.content, 'html.parser')
     ingredients = soup.find_all(attrs={"itemprop": "ingredients"})
+    new_items = []
     for i in ingredients:
-        if i.text.strip().lower()[-1] != ":":
-            db.users.update_one({"username": username}, {"$push": {"grocery_list": i.text.strip().lower()}})
+        item = i.text.strip().lower()
+        if item[-1] != ":":
+            new_items.append(item)
+
+    grocery_list.extend(new_items)
+    supabase.table("users").update({"grocery_list": grocery_list}).eq("username", username).execute()
 
     if not ingredients:
         return jsonify({"msg": "No ingredients found"}), 404
 
     return jsonify({"msg": "Ingredients added to grocery list"}), 200
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True)
