@@ -3,7 +3,7 @@ requests
 flask-cors
 flask-jwt-extended
 werkzeug
-pymongo
+supabase
 python-dotenv
 beautifulsoup4
 blueprint
