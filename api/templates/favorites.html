@@ -82,7 +82,7 @@
                             <input type="hidden" name="item" value="{{ item }}">
                             <button class="favorite-button" type="submit">Unfavorite</button>
                         </form>
-                        <form action="{{ url_for('grocery_list_add_favorites') }}" method="post" style="margin:0;">
+                        <form action="{{ url_for('grocery_list_add_favorite') }}" method="post" style="margin:0;">
                             <input type="hidden" name="item" value="{{ item }}">
                             <button class="add-button" type="submit">Add to Grocery List</button>
                         </form>

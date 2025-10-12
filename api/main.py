@@ -286,10 +286,68 @@ def show_favorites():
     favorites = users[0]['favorites'] if users and 'favorites' in users[0] else []
     return render_template('favorites.html', favorites=favorites)
 
+@app.route('/favorites/remove', methods=['POST'])
+def grocery_list_unfavorite():
+    username = session.get('username')
+    if not username:
+        flash("You must be logged in", "error")
+        return redirect(url_for('show_login'))
+    item = request.form.get('item')
+    if not item:    
+        flash("Item cannot be empty", "error")
+        return redirect(url_for('show_favorites'))
+    user_resp = supabase.table("users").select("favorites").eq("username", username).execute()
+    users = user_resp.data if user_resp.data else []
+    favorites = users[0]['favorites'] if users and 'favorites' in users[0] else []
+    if item.lower() in favorites:
+        favorites.remove(item.lower())
+        supabase.table("users").update({"favorites": favorites}).eq("username", username).execute()
+        flash(f"Removed '{item}' from favorites", "success")
+    else:
+        flash(f"'{item}' not found in favorites", "error")
+    return redirect(url_for('show_favorites'))
+
+@app.route('/favorites/addGrocery', methods=['POST'])
+def grocery_list_add_favorite():
+    username = session.get('username')
+    if not username:
+        flash("You must be logged in", "error")
+        return redirect(url_for('show_login'))
+
+    item = request.form.get('item')
+    if not item:
+        flash("Item cannot be empty", "error")
+        return redirect(url_for('show_favorites'))
+
+    user_resp = supabase.table("users").select("grocery_list").eq("username", username).execute()
+    users = user_resp.data if user_resp.data else []
+    grocery_list = users[0]['grocery_list'] if users and 'grocery_list' in users[0] else []
+    
+    grocery_list.append(item.lower())
+    supabase.table("users").update({"grocery_list": grocery_list}).eq("username", username).execute()
+
+    flash(f"Added '{item}' to grocery list", "success")
+    return redirect(url_for('show_favorites'))
+
 @app.route('/recipes')
 def show_recipes():
     return render_template('recipes.html')
 
+
+# --- Helper function ---
+def normalize_record(record):
+    """Ensure Supabase record fields are always dictionaries."""
+    if not record:
+        return {"spending": {}, "archive": {}}
+    for key in ["spending", "archive"]:
+        if isinstance(record.get(key), list):
+            record[key] = record[key][0] if record[key] else {}
+        elif not isinstance(record.get(key), dict):
+            record[key] = {}
+    return record
+
+
+# --- Main route: Money Spent ---
 @app.route('/money-spent', methods=['GET', 'POST'])
 def money_spent():
     username = session.get('username')
@@ -300,45 +358,115 @@ def money_spent():
     now = datetime.datetime.now()
     month_key = f"{now.year}-{now.month:02d}"
 
-    record_resp = supabase.table("spending").select("*").eq("username", username).execute()
-    record = record_resp.data if record_resp.data else None
-    if not record:
-        record = {"username": username, "spending": {}, "archive": {}}
-        supabase.table("spending").insert(record).execute()
+    # Fetch or create record
+    resp = supabase.table("spending").select("*").eq("username", username).execute()
+    record = normalize_record(resp.data[0] if resp.data else None)
 
+    if not resp.data:
+        supabase.table("spending").insert({
+            "username": username,
+            "spending": {},
+            "archive": {}
+        }).execute()
+
+    # Handle POST (adding a new spending entry)
     if request.method == 'POST':
-        if 'reset' in request.form:
-            current_values = record.get("spending", {}).get(month_key, [])
-            archive_values = [v["amount"] if isinstance(v, dict) else v for v in current_values]
-            new_archive = record.get("archive", {})
-            new_archive[month_key] = new_archive.get(month_key, []) + archive_values
-            supabase.table("spending").update({
-                "archive": new_archive,
-                "spending": {**record.get("spending", {}), month_key: []}
-            }).eq("username", username).execute()
-            flash("Spending archived", "success")
-        else:
-            try:
-                amount = float(request.form.get('amount', 0))
-                if amount > 0:
-                    entry = {"amount": amount, "date": now.strftime("%Y-%m-%d")}
-                    spending = record.get("spending", {})
-                    spending.setdefault(month_key, [])
-                    spending[month_key].append(entry)
-                    supabase.table("spending").update({"spending": spending}).eq("username", username).execute()
-                    flash(f"Added ${amount:.2f}", "success")
-                else:
-                    flash("Please enter a positive amount.", "error")
-            except ValueError:
-                flash("Invalid amount.", "error")
+        amount = request.form.get('amount')
+        if not amount or not amount.replace('.', '', 1).isdigit():
+            flash("Please enter a valid amount", "error")
+            return redirect(url_for('money_spent'))
+
+        amount = float(amount)
+        record['spending'].setdefault(month_key, [])
+        record['spending'][month_key].append({
+            "amount": amount,
+            "date": now.strftime('%Y-%m-%d')
+        })
+
+        # Update database
+        supabase.table("spending").update({
+            "spending": record["spending"]
+        }).eq("username", username).execute()
+
+        flash("Spending recorded successfully", "success")
+        # Refresh record after update
+        resp = supabase.table("spending").select("*").eq("username", username).execute()
+        record = normalize_record(resp.data[0])
+
+    # Compute totals for display
+    monthly_spending = {}
+    for month, values in record["spending"].items():
+        monthly_spending[month] = sum(v.get("amount", 0) for v in values)
+    for month, values in record["archive"].items():
+        monthly_spending[month] = monthly_spending.get(month, 0) + sum(
+            v.get("amount", 0) if isinstance(v, dict) else v for v in values
+        )
+
+    current_total = monthly_spending.get(month_key, 0.0)
+
+    return render_template(
+        'money_spent.html',
+        monthly_spending=monthly_spending,
+        current_total=current_total,
+        month=now.strftime('%B'),
+        year=now.year
+    )
+
+
+# --- Reset route: Archive and clear current month ---
+@app.route('/money-spent/reset', methods=['POST'])
+def reset_money_spent():
+    username = session.get('username')
+    if not username:
+        flash("You must be logged in", "error")
+        return redirect(url_for('show_login'))
+
+    now = datetime.datetime.now()
+    month_key = f"{now.year}-{now.month:02d}"
+
+    # Fetch record
+    resp = supabase.table("spending").select("*").eq("username", username).execute()
+    record = normalize_record(resp.data[0] if resp.data else None)
+
+    if month_key not in record["spending"]:
+        flash(f"No spending data found for {now.strftime('%B %Y')}.", "error")
         return redirect(url_for('money_spent'))
 
-    record_resp = supabase.table("spending").select("*").eq("username", username).execute()
-    record = record_resp.data if record_resp.data else {}
-    values = record.get("spending", {}).get(month_key, [])
-    values = [v if isinstance(v, dict) else {"amount": v, "date": ""} for v in values]
-    total = sum(v["amount"] for v in values)
-    return render_template('money_spent.html', values=values, total=total, month=now.strftime('%B'), year=now.year)
+    # Move this month's spending to archive
+    month_data = record["spending"].pop(month_key)
+    record["archive"].setdefault(month_key, []).extend(month_data)
+
+    # Update Supabase
+    supabase.table("spending").update({
+        "spending": record["spending"],
+        "archive": record["archive"]
+    }).eq("username", username).execute()
+
+    # Re-fetch for accurate totals
+    updated = supabase.table("spending").select("*").eq("username", username).execute()
+    record = normalize_record(updated.data[0])
+
+    flash(f"Spending for {now.strftime('%B %Y')} has been reset and archived.", "success")
+    monthly_spending = {}
+    for month, values in record["spending"].items():
+        monthly_spending[month] = sum(v.get("amount", 0) for v in values)
+    for month, values in record["archive"].items():
+        monthly_spending[month] = monthly_spending.get(month, 0) + sum(
+            v.get("amount", 0) if isinstance(v, dict) else v for v in values
+        )
+
+    current_total = monthly_spending.get(month_key, 0.0)
+
+    return render_template(
+        'money_spent.html',
+        monthly_spending=monthly_spending,
+        current_total=current_total,
+        month=now.strftime('%B'),
+        year=now.year
+    )
+
+
+
 
 @app.route('/search-recipes')
 def search_recipes():
@@ -370,22 +498,49 @@ def search_user():
         flash("Please enter a username", "error")
         return redirect(url_for('show_admin'))
 
+    # Get the user's account
     user_resp = supabase.table("users").select("*").eq("username", username).execute()
-    user = user_resp.data if user_resp.data else None
+    user = user_resp.data[0] if user_resp.data else None
+
     if not user:
         flash("User not found", "error")
         return redirect(url_for('show_admin'))
 
+    # Get the user's spending record
     spending_resp = supabase.table("spending").select("*").eq("username", username).execute()
-    spending_record = spending_resp.data if spending_resp.data else {}
-    monthly_spending = {}
-    if spending_record:
-        for month, values in spending_record.get("spending", {}).items():
-            monthly_spending[month] = sum([v["amount"] if isinstance(v, dict) else v for v in values])
-        for month, values in spending_record.get("archive", {}).items():
-            monthly_spending[month] = monthly_spending.get(month, 0) + sum([v if isinstance(v, (int, float)) else v.get("amount", 0) for v in values])
+    spending_data = spending_resp.data[0] if spending_resp.data else None
 
-    return render_template('admin.html', user=user, monthly_spending=monthly_spending or None)
+    monthly_spending = {}
+    if spending_data:
+        # Ensure spending and archive are dicts, not lists
+        spending = spending_data.get("spending", {})
+        archive = spending_data.get("archive", {})
+
+        if isinstance(spending, list):
+            spending = spending[0] if spending else {}
+
+        if isinstance(archive, list):
+            archive = archive[0] if archive else {}
+
+        # Combine totals from spending and archive
+        for month, values in spending.items():
+            monthly_spending[month] = sum(
+                [v["amount"] if isinstance(v, dict) else v for v in values]
+            )
+
+        for month, values in archive.items():
+            monthly_spending[month] = monthly_spending.get(month, 0) + sum(
+                [v if isinstance(v, (int, float)) else v.get("amount", 0) for v in values]
+            )
+
+    # Render admin template with user + monthly totals
+    return render_template(
+        'admin.html',
+        user=user,
+        monthly_spending=monthly_spending or {},
+        selected_user=username
+    )
+
 
 @app.route("/api/get-key")
 def get_key():

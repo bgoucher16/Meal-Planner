@@ -48,12 +48,12 @@
 <body>
     <div class="container">
         <h2>Spending for {{ month }} {{ year }}</h2>
-        <div style="margin-bottom:18px;">Total this month: <strong>${{ '%.2f'|format(total) }}</strong></div>
+        <div style="margin-bottom:18px;">Total this month: <strong>${{ '%.2f'|format(current_total) }}</strong></div>
         <form method="POST" action="{{ url_for('money_spent') }}" style="display:flex; gap:12px; margin-bottom:12px;">
             <input type="number" name="amount" step="0.01" min="0" placeholder="Enter amount" required>
             <button type="submit">Add</button>
         </form>
-        <form method="POST" action="{{ url_for('money_spent') }}" style="margin-bottom:24px;">
+        <form method="POST" action="{{ url_for('reset_money_spent') }}" style="margin-bottom:24px;">
             <input type="hidden" name="reset" value="1">
             <button type="submit" style="background:#ef4444;">Reset for New Month</button>
         </form>
