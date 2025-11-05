@@ -3,88 +3,108 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Grocery List</title>
+    <title>Your Grocery List</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <style>
-        .grocery-list {
-            margin-top: 24px;
-        }
-        .grocery-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 18px;
-        }
-        .item-name {
-            flex: 1;
-            font-size: 1.08em;
-            padding: 12px 0;
-        }
-        .button-container {
-            display: flex;
-            gap: 10px;
-        }
-        .favorite-button, .remove-button {
-            padding: 8px 18px;
-            border-radius: 6px;
-            border: none;
-            font-weight: 600;
-            cursor: pointer;
-            font-size: 1em;
-            transition: background 0.2s, color 0.2s;
-        }
-        .favorite-button {
-            background: #fbbf24;
-            color: #fff;
-        }
-        .favorite-button:hover {
-            background: #f59e0b;
-        }
-        .remove-button {
-            background: #ef4444;
-            color: #fff;
-        }
-        .remove-button:hover {
-            background: #b91c1c;
-        }
-        @media (max-width: 600px) {
-            .grocery-item {
-                flex-direction: column;
-                align-items: stretch;
-                gap: 8px;
-                padding: 0 8px;
-            }
-            .button-container {
-                justify-content: flex-end;
-            }
+        /* Dark mode overrides */
+        @media (prefers-color-scheme: dark) {
+            body { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #e2e8f0; }
+            .topbar { background: #1e293b; box-shadow: 0 2px 12px rgba(0,0,0,0.4); }
+            .card, .grocery-card { background: #334155; color: #e2e8f0; }
+            .hero { background: linear-gradient(120deg, #6366f1, #4338ca); }
+            .btn { background: linear-gradient(90deg, #6366f1, #818cf8); }
+            a { color: #93c5fd; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2>Grocery List</h2>
-        <form id="add-item-form" action="{{ url_for('grocery_list_add') }}" method="post">
-            <input type="text" id="item" name="item" placeholder="Add item" required>
-            <button type="submit">Add</button>
-        </form>
-        <ul id="grocery-list" class="grocery-list">
-            {% for item in grocery_list %}
-                <li class="grocery-item">
-                    <span class="item-name">{{ item }}</span>
-                    <div class="button-container">
-                        <form action="{{ url_for('grocery_list_favorite') }}" method="post" style="margin:0;">
-                            <input type="hidden" name="item" value="{{ item }}">
-                            <button class="favorite-button" type="submit">Favorite</button>
-                        </form>
-                        <form action="{{ url_for('grocery_list_delete') }}" method="post" style="margin:0;">
-                            <input type="hidden" name="item" value="{{ item }}">
-                            <button class="remove-button" type="submit">Remove</button>
-                        </form>
+
+    <!-- Topbar -->
+    <nav class="topbar">
+        <div class="topbar-left">
+            <h1>🛒 Grocery List</h1>
+        </div>
+        <div class="topbar-right">
+            <button id="themeToggle" title="Toggle dark mode" style="border:none;background:none;cursor:pointer;font-size:1.2em;">🌞</button>
+            <select onchange="if (this.value) window.location.href=this.value;">
+                <option disabled selected>⚙️</option>
+                <option value="{{ url_for('show_home') }}">🏠 Home</option>
+                <option value="{{ url_for('favorite_recipes') }}">❤️ Favorites</option>
+                <option value="{{ url_for('money_spent') }}">💵 Spending</option>
+                <option value="{{ url_for('logout') }}">🔓 Logout</option>
+            </select>
+        </div>
+    </nav>
+
+    <!-- Dashboard Layout -->
+    <main class="dashboard">
+
+        <!-- Hero Section -->
+        <section class="hero" style="text-align:center;">
+            <h2>Your Grocery List</h2>
+            <p>All your needed ingredients in one place. Stay organized before you shop!</p>
+        </section>
+
+        <!-- Grocery Items -->
+        {% if groceries %}
+        <section class="card" style="background:transparent; box-shadow:none;">
+            <div class="recipe-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:20px; margin-top:20px;">
+                {% for item in groceries %}
+                <div class="grocery-card" style="background:var(--card,#fff); border-radius:12px; box-shadow:0 4px 12px rgba(60,72,88,0.08); padding:16px; display:flex; flex-direction:column; justify-content:space-between; animation:fadeIn 0.4s ease;">
+                    <div>
+                        <h3 style="font-size:1.1em; margin-bottom:6px;">{{ item.ingredient_name }}</h3>
+                        <p style="color:#64748b; font-size:0.95em; margin-bottom:6px;">{{ item.quantity }} {{ item.unit }}</p>
+                        {% if item.recipe_id %}
+                            <small style="color:#94a3b8;">From recipe ID: {{ item.recipe_id }}</small>
+                        {% endif %}
                     </div>
-                </li>
-            {% endfor %}
-        </ul>
-        <p><a href="/">Home</a></p>
-    </div>
+                    <form action="{{ url_for('remove_grocery_item', item_id=item.id) }}" method="post" style="margin-top:12px;">
+                        <button type="submit" class="btn btn-danger">🗑 Remove</button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% else %}
+        <!-- Empty State -->
+        <section class="card" style="text-align:center; animation:fadeIn 0.5s ease;">
+            <p style="font-size:1.05em; color:#64748b; margin-top:10px;">No items in your grocery list yet.</p>
+            <a href="{{ url_for('favorite_recipes') }}" class="btn" style="max-width:220px; display:inline-block; margin-top:16px;">
+                ➕ Add from Favorites
+            </a>
+        </section>
+        {% endif %}
+
+        <!-- Back to Favorites -->
+        <div style="text-align:center; margin-top:30px;">
+            <a href="{{ url_for('favorite_recipes') }}" class="btn" style="max-width:200px;">⬅ Back to Favorites</a>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>© {{ current_year }} Meal Planner — Organized meals made easy.</p>
+    </footer>
+
+    <!-- Dark Mode Toggle Script -->
+    <script>
+        const toggleButton = document.getElementById('themeToggle');
+        const body = document.body;
+
+        // Check stored theme
+        if (localStorage.getItem('theme') === 'dark') {
+            body.classList.add('dark');
+            toggleButton.textContent = '🌙';
+        }
+
+        toggleButton.addEventListener('click', () => {
+            body.classList.toggle('dark');
+            const darkMode = body.classList.contains('dark');
+            toggleButton.textContent = darkMode ? '🌙' : '🌞';
+            localStorage.setItem('theme', darkMode ? 'dark' : 'light');
+        });
+    </script>
+
 </body>
 </html>

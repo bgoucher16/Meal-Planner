@@ -7,88 +7,148 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h2>User Search</h2>
-        <form id="search-user-form" action="{{ url_for('search_user') }}" method="get">
-            <input type="text" id="user" name="user" placeholder="Search Username" required>
-            <button type="submit">Search</button>
-        </form>
-        {% if user %}
-            <div class="user-details">
-                <h3>User Details</h3>
-                <p><strong>Username:</strong> {{ user.username }}</p>
-                <p><strong>Email:</strong> {{ user.email }}</p>
-                <p><strong>Location:</strong> {{ user.location }}</p>
-                <h4>Grocery List</h4>
-                <ul>
-                    {% for item in user.grocery_list %}
-                        <li>{{ item }}</li>
-                    {% endfor %}
-                </ul>
-                <h4>Favorites</h4>
-                <ul>
-                    {% for item in user.favorites %}
-                        <li>{{ item }}</li>
-                    {% endfor %}
-                </ul>
-                <!-- Create a graph based on money spent each month -->
-                <h4>Monthly Spending (Bar Graph)</h4>
-                    {% if monthly_spending %}
-                        {% set total_spent = monthly_spending.values()|sum %}
-                        {% set months_with_data = monthly_spending.values()|select('gt', 0)|list|length %}
-                        <p style="margin-top:16px;">
-                            <strong>Yearly Average:</strong>
-                            ${{ (total_spent / months_with_data)|round(2) if months_with_data > 0 else '0.00' }}
-                        </p>
-                    {% endif %}
-                <div id="monthly-spending">
-                    <canvas id="spendingChart" width="400" height="200"></canvas>
-                    {% if not monthly_spending %}
-                        <p>No spending data available.</p>
-                    {% endif %}
-                </div>
-                <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-                <script>
-                    const monthLabels = [
-                        "January", "February", "March", "April", "May", "June",
-                        "July", "August", "September", "October", "November", "December"
-                    ];
-                    const spendingData = Array(12).fill(0);
-
-                    {% if monthly_spending %}
-                        const monthlySpending = {{ monthly_spending|tojson }};
-                        for (const month in monthlySpending) {
-                            const parts = month.split('-');
-                            const monthIndex = parseInt(parts[1], 10) - 1;
-                            if (monthIndex >= 0 && monthIndex < 12) {
-                                spendingData[monthIndex] = monthlySpending[month];
-                            }
-                        }
-                    {% endif %}
-
-                    const ctx = document.getElementById('spendingChart').getContext('2d');
-                    new Chart(ctx, {
-                        type: 'bar',
-                        data: {
-                            labels: monthLabels,
-                            datasets: [{
-                                label: 'Total Spent ($)',
-                                data: spendingData,
-                                backgroundColor: 'rgba(54, 162, 235, 0.6)',
-                                borderColor: 'rgba(54, 162, 235, 1)',
-                                borderWidth: 1
-                            }]
-                        },
-                        options: {
-                            scales: {
-                                y: { beginAtZero: true }
-                            }
-                        }
-                    });
-                </script>
-            </div>
-        {% endif %}
-        <p><a href="/">Home</a></p>
+<!-- Topbar -->
+<nav class="topbar">
+    <div class="topbar-left">
+        <h1>👩‍💼 Admin Dashboard</h1>
     </div>
+    <div class="topbar-right">
+        <select onchange="if (this.value) window.location.href=this.value;">
+            <option disabled selected>⚙️</option>
+            <option value="{{ url_for('home') }}">🏠 Home</option>
+            <option value="{{ url_for('logout') }}">🔓 Logout</option>
+        </select>
+    </div>
+</nav>
+
+<main class="dashboard">
+
+    <!-- Header -->
+    <section class="hero" style="text-align:center;">
+        <h2>🔍 User Search</h2>
+        <p>Search for users and review their data, spending, and favorites.</p>
+    </section>
+
+    <!-- Search Bar -->
+    <section class="card" style="text-align:center;">
+        <form id="search-user-form" action="{{ url_for('search_user') }}" method="get" style="display:flex; justify-content:center; gap:12px; flex-wrap:wrap;">
+            <input type="text" id="user" name="user" placeholder="Enter username..." required>
+            <button type="submit" class="btn" style="max-width:200px;">Search</button>
+        </form>
+    </section>
+
+    {% if user %}
+    <!-- User Details Card -->
+    <section class="card" style="animation:fadeIn 0.4s ease;">
+        <h2>User Details</h2>
+        <div class="bottom-grid">
+            <div>
+                <p><strong>👤 Username:</strong> {{ user.username }}</p>
+                <p><strong>📧 Email:</strong> {{ user.email }}</p>
+                <p><strong>📍 Location:</strong> {{ user.location }}</p>
+            </div>
+        </div>
+
+        <!-- Grocery List -->
+        <h3 style="margin-top:24px;">🛒 Grocery List</h3>
+        {% if user.grocery_list %}
+        <ul>
+            {% for item in user.grocery_list %}
+                <li>{{ item }}</li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p style="color:#64748b;">No grocery items found.</p>
+        {% endif %}
+
+        <!-- Favorites -->
+        <h3 style="margin-top:24px;">❤️ Favorite Recipes</h3>
+        {% if user.favorites %}
+        <ul>
+            {% for item in user.favorites %}
+                <li>{{ item }}</li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p style="color:#64748b;">No favorites saved.</p>
+        {% endif %}
+    </section>
+
+    <!-- Spending Graph -->
+    <section class="card" style="animation:fadeIn 0.6s ease;">
+        <h2>📊 Monthly Spending</h2>
+
+        {% if monthly_spending %}
+            {% set total_spent = monthly_spending.values()|sum %}
+            {% set months_with_data = monthly_spending.values()|select('gt', 0)|list|length %}
+            <p style="margin-top:8px;">
+                <strong>Yearly Average:</strong>
+                ${{ (total_spent / months_with_data)|round(2) if months_with_data > 0 else '0.00' }}
+            </p>
+        {% endif %}
+
+        <div id="monthly-spending" style="margin-top:16px;">
+            <canvas id="spendingChart" width="400" height="200"></canvas>
+            {% if not monthly_spending %}
+                <p style="color:#64748b;">No spending data available.</p>
+            {% endif %}
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script>
+            const monthLabels = [
+                "January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"
+            ];
+            const spendingData = Array(12).fill(0);
+
+            {% if monthly_spending %}
+                const monthlySpending = {{ monthly_spending|tojson }};
+                for (const month in monthlySpending) {
+                    const parts = month.split('-');
+                    const monthIndex = parseInt(parts[1], 10) - 1;
+                    if (monthIndex >= 0 && monthIndex < 12) {
+                        spendingData[monthIndex] = monthlySpending[month];
+                    }
+                }
+            {% endif %}
+
+            const ctx = document.getElementById('spendingChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: monthLabels,
+                    datasets: [{
+                        label: 'Total Spent ($)',
+                        data: spendingData,
+                        backgroundColor: 'rgba(99, 102, 241, 0.6)',
+                        borderColor: 'rgba(99, 102, 241, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: { beginAtZero: true, ticks: { color: '#4b5563' } },
+                        x: { ticks: { color: '#4b5563' } }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#374151' } }
+                    }
+                }
+            });
+        </script>
+    </section>
+    {% endif %}
+
+    <!-- Back Link -->
+    <div style="text-align:center; margin-top:20px;">
+        <a href="{{ url_for('show_home') }}" class="btn" style="max-width:200px;">⬅ Back to Home</a>
+    </div>
+</main>
+
+<footer class="footer">
+    <p>© {{ current_year }} Meal Planner Admin</p>
+</footer>
+
 </body>
 </html>

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Favorite Recipes</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+<!-- Topbar -->
+<nav class="topbar">
+    <div class="topbar-left">
+        <h1>❤️ Favorite Recipes</h1>
+    </div>
+    <div class="topbar-right">
+        <select onchange="if (this.value) window.location.href=this.value;">
+            <option disabled selected>⚙️</option>
+            <option value="{{ url_for('show_home') }}">🏠 Home</option>
+            <option value="{{ url_for('money_spent') }}">💵 Spending</option>
+            <option value="{{ url_for('subscription') }}">📦 Subscription</option>
+            <option value="{{ url_for('logout') }}">🔓 Logout</option>
+        </select>
+    </div>
+</nav>
+
+<main class="dashboard">
+    <!-- Hero Section -->
+    <section class="hero" style="text-align:center;">
+        <h2>Your Favorite Recipes</h2>
+        <p>View and manage the recipes you’ve saved for later.</p>
+    </section>
+
+    {% if favorites %}
+    <!-- Favorites Grid -->
+    <section class="card" style="background:transparent; box-shadow:none;">
+        <div class="recipe-grid">
+            {% for recipe in favorites %}
+            <div class="recipe-card" style="animation:fadeIn 0.4s ease;">
+                <img src="{{ recipe.image }}" alt="{{ recipe.title }}">
+                <div style="padding:16px;">
+                    <h3 style="font-size:1.1em; margin-bottom:8px;">{{ recipe.title }}</h3>
+                    <div style="display:flex; justify-content:center; margin-top:12px;">
+                        <form action="{{ url_for('show_home') }}" method="post">
+                            <button type="submit" class="btn" 
+                                style="background:linear-gradient(120deg,#34d399,#059669);
+                                       padding:10px 18px; font-size:0.95em; border-radius:8px;">
+                                🛒 Add to Grocery
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% else %}
+    <section class="card" style="text-align:center; animation:fadeIn 0.5s ease;">
+        <p style="font-size:1.05em; color:#64748b; margin-top:10px;">No favorites yet. ❤️</p>
+        <a href="{{ url_for('next_recipe') }}" class="btn" 
+           style="max-width:220px; display:inline-block; margin-top:16px;">
+           Discover Recipes
+        </a>
+    </section>
+    {% endif %}
+
+    <!-- Back to Home -->
+    <div style="text-align:center; margin-top:30px;">
+        <a href="{{ url_for('show_home') }}" class="btn" style="max-width:180px;">⬅ Back to Home</a>
+    </div>
+</main>
+
+<footer class="footer">
+    <p>© {{ current_year }} Meal Planner</p>
+</footer>
+
+</body>
+</html>

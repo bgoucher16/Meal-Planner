@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <title>Document</title>
+  </head>
+  <body>
+<div class="swipe-container">
+  <div class="swipe-card">
+    <img src="{{ recipe.image }}" alt="{{ recipe.title }}">
+    <h2>{{ recipe.title }}</h2>
+    <p>{{ recipe.summary | safe }}</p>
+
+    <div class="swipe-buttons">
+      <!-- Dislike -->
+      <form action="{{ url_for('dislike', spoonacular_id=recipe.id) }}" method="post">
+        <button type="submit" class="dislike">🚫</button>
+      </form>
+
+      <!-- Skip (center, round) -->
+      <form action="{{ url_for('skip', spoonacular_id=recipe.id) }}" method="post">
+        <button type="submit" class="skip">⏭️</button>
+      </form>
+
+      <!-- Favorite -->
+      <form action="{{ url_for('favorite', spoonacular_id=recipe.id) }}" method="post">
+        <button type="submit" class="favorite">❤️</button>
+      </form>
+    </div>
+  </div>
+</div>
+  </body>
+</html>
+
+<script>
+  const buttons = document.querySelectorAll('.swipe-buttons button');
+  const card = document.querySelector('.swipe-card');
+
+  buttons.forEach(button => {
+    button.addEventListener('click', (e) => {
+      e.preventDefault(); // Prevent instant redirect
+
+      if (button.classList.contains('dislike')) {
+        card.classList.add('swipe-left');
+      } else if (button.classList.contains('favorite')) {
+        card.classList.add('swipe-right');
+      } else {
+        card.classList.add('swipe-down');
+      }
+
+      // Wait for animation, then submit form
+      setTimeout(() => {
+        button.closest('form').submit();
+      }, 350);
+    });
+  });
+</script>
+

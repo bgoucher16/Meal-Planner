@@ -2,115 +2,92 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Meal Planner Home</title>
+    <title>Meal Planner Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 </head>
 <body>
-    <div class="container">
-        <div class="header" style="display: flex; justify-content: space-between; align-items: center;">
-            <h2>Welcome{{ ', ' + username }}!</h2>
-            <h2 style="text-align: right;">Budget left: {{"$" + monthly_budget }}</h2>
+    <!-- Top Navigation -->
+    <nav class="topbar">
+        <div class="topbar-left">
+            <h1>🥗 Meal Planner</h1>
         </div>
-
-        <!-- Quick Actions Bar -->
-        <div class="quick-actions-bar">
-            <a class="quick-action-btn" href="{{ url_for('show_grocery_list') }}">🛒 View Grocery List</a>
-            <a class="quick-action-btn" href="{{ url_for('show_favorites') }}">❤️ View Favorites</a>
-            <a class="quick-action-btn" href="{{ url_for('show_recipes') }}">📖 Find Recipes</a>
-            <a class="quick-action-btn" href="{{ url_for('money_spent') }}">💵 Track Spending</a>
-            <a class="quick-action-btn" href="{{ url_for('logout') }}">🔓 Logout</a>
+        <div class="topbar-right">
+            <span class="welcome">Hi{{ ', ' + username }}!</span>
+            <select onchange="if (this.value) window.location.href=this.value;">
+                <option disabled selected>⚙️</option>
+                <option value="{{ url_for('money_spent') }}">💵 Spending</option>
+                <option value="{{ url_for('subscription') }}">📦 Subscription</option>
+                <option value="{{ url_for('logout') }}">🔓 Logout</option>
+            </select>
         </div>
+    </nav>
 
-        <!-- Recommended Section -->
-        <div class="recommended-section">
-            <h3>Recommended For You</h3>
-            <div class="recipes-grid">
+    <main class="dashboard">
+
+        <!-- Hero Section -->
+        <section class="hero">
+            <h2>Welcome back{{ ', ' + username }} 👋</h2>
+            <p>Plan meals, track spending, and discover new recipes—all in one place.</p>
+        </section>
+
+        <!-- Quick Actions -->
+        <section class="actions">
+            <a href="{{ url_for('grocery_list') }}" class="action-card">
+                <div class="icon">🛒</div>
+                <div>
+                    <h3>Grocery List</h3>
+                    <p>Manage your weekly ingredients.</p>
+                </div>
+            </a>
+
+            <a href="{{ url_for('favorite_recipes') }}" class="action-card">
+                <div class="icon">❤️</div>
+                <div>
+                    <h3>Favorites</h3>
+                    <p>View your saved recipes.</p>
+                </div>
+            </a>
+
+            <a href="{{ url_for('next_recipe') }}" class="action-card">
+                <div class="icon">📖</div>
+                <div>
+                    <h3>Discover Recipes</h3>
+                    <p>Find meals you’ll love.</p>
+                </div>
+            </a>
+        </section>
+
+        <!-- Recommended Recipes -->
+        <section class="recommended">
+            <div class="section-header">
+                <h2>Recommended For You</h2>
+                <a href="{{ url_for('next_recipe') }}">See All →</a>
+            </div>
+            <div class="recipe-grid">
                 {% for recipe in recommended %}
-                    <div class="recipe-card">
-                        <strong>{{ recipe.title }}</strong>
-                        <img src="{{ recipe.image }}" alt="{{ recipe.title }}" style="max-width: 100%; margin-bottom: 12px;">
-                        <a href="{{ recipe.sourceUrl }}" target="_blank">View Full Recipe</a>
-                    </div>
+                <div class="recipe-card">
+                    <img src="{{ recipe.image }}" alt="{{ recipe.title }}">
+                    <h4>{{ recipe.title }}</h4>
+                    <a href="{{ recipe.sourceUrl }}" target="_blank">View Recipe</a>
+                </div>
                 {% endfor %}
             </div>
-        </div>
+        </section>
 
-        <!-- Bottom Grid for Grocery List and Favorites -->
-        <div class="bottom-grid">
-            <div class="card">
-                <h3>This Month's Grocery List</h3>
-                {% if grocery_list %}
-                    <ul>
-                        {% for item in grocery_list %}
-                            <li>{{ item }}</li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p>No items in your grocery list yet.</p>
-                {% endif %}
+        <!-- Budget Overview -->
+        <section class="summary">
+            <div class="summary-card">
+                <h2>💰 Spending Overview</h2>
+                <p>Track your monthly food expenses.</p>
+                <a href="{{ url_for('money_spent') }}" class="btn">View Spending</a>
             </div>
+        </section>
 
-            <div class="card">
-                <h3>Your Favorites</h3>
-                {% if favorites %}
-                    <ul>
-                        {% for item in favorites %}
-                            <li>{{ item }}</li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p>No favorites yet. Add some from your grocery list or recipes!</p>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    <script>
-        document.querySelectorAll('.recipe-card strong').forEach(function (title) {
-            if (!title.querySelector('span')) {
-                const span = document.createElement('span');
-                span.textContent = title.textContent;
-                title.textContent = '';
-                title.appendChild(span);
-            }
+    </main>
 
-            const span = title.querySelector('span');
-            let animationFrame;
-            let start = null;
-            let distance = 0;
-            let duration = 1500;
-
-            title.addEventListener('mouseenter', function () {
-                if (span.scrollWidth > title.clientWidth) {
-                    distance = span.scrollWidth - title.clientWidth;
-                    start = null;
-
-                    function animateSlide(timestamp) {
-                        if (!start) start = timestamp;
-                        let elapsed = timestamp - start;
-                        let progress = Math.min(elapsed / duration, 1);
-
-                        // Ease out (cubic)
-                        let easedProgress = 1 - Math.pow(1 - progress, 3);
-                        span.style.transform = `translateX(-${Math.round(easedProgress * distance)}px)`;
-
-                        if (progress < 1) {
-                            animationFrame = requestAnimationFrame(animateSlide);
-                        }
-                    }
-
-                    animationFrame = requestAnimationFrame(animateSlide);
-                }
-            });
-
-            title.addEventListener('mouseleave', function () {
-                cancelAnimationFrame(animationFrame);
-                span.style.transition = 'transform 0.3s ease-out';
-                span.style.transform = 'translateX(0)';
-            });
-        });
-
-    </script>
+    <footer class="footer">
+        <p>© {{ current_year }} Meal Planner — Eat better. Live smarter.</p>
+    </footer>
 </body>
 </html>

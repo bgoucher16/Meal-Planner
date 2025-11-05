@@ -88,6 +88,12 @@ def show_home():
                            monthly_budget=monthly_budget,
                            username=username)
 
+@app.route('/subscription')
+def subscription():
+    return render_template('subscription.html')
+
+@app.route
+
 @app.route('/logout')
 def logout():
     session.pop('username', None)
@@ -126,27 +132,34 @@ def register():
         flash("Email already exists", "error")
         return redirect(url_for('register'))
 
-    if diet == "" or allergies == "":
-        diet = []
-        allergies = []
+    if not diet:
+        diet = None
+    if not allergies:
+        allergies = None
+    if not monthley_budget:
+        monthley_budget = None
 
     hashed_password = generate_password_hash(password)
-    supabase.table("users").insert({
+    user_resp = supabase.table("users").insert({
         "username": username,
         "email": email,
         "password": hashed_password,
+    }).execute()
+
+    user_id = user_resp.data[0]["id"]
+
+    
+    user_tier = "free"
+    total_swipes = 5
+
+    supabase.table("user_profile").insert({
+        "user_id": user_id,
         "location": location,
         "diet": diet,
         "allergies": allergies,
         "monthly_budget": monthley_budget,
-        "grocery_list": [],
-        "favorites": []
-    }).execute()
-
-    supabase.table("spending").insert({
-        "username": username,
-        "spending": [],
-        "archive": []
+        "user_tier": user_tier,
+        "total_swipes": total_swipes,
     }).execute()
 
     flash("User registered successfully", "success")
@@ -163,26 +176,40 @@ def show_login():
     admin_username = os.getenv("ADMIN_USERNAME")
     admin_password = os.getenv("ADMIN_PASSWORD")
 
+    # Check for admin credentials
     if username == admin_username and password == admin_password:
+        session.clear()
+        session['is_admin'] = True
+        flash("Admin login successful", "success")
         return redirect(url_for('show_admin'))
 
     if not username or not password:
         flash("Username and password are required", "error")
         return redirect(url_for('show_login'))
 
+    # Query Supabase for the user
     user_resp = supabase.table("users").select("*").eq("username", username).execute()
     users = user_resp.data if user_resp.data else []
+
     if not users:
         flash("User not found", "error")
         return redirect(url_for('show_login'))
+
     user = users[0]
+
+    # Verify password
     if not check_password_hash(user['password'], password):
         flash("Invalid username or password", "error")
         return redirect(url_for('show_login'))
 
-    access_token = create_access_token(identity=username)
-    session['username'] = username
+    # Store user info in session
+    session.clear()
+    session['user_id'] = user['id']          # UUID from Supabase
+    session['username'] = user['username']   # optional (for display)
+    session['email'] = user['email']         # optional
+    access_token = create_access_token(identity=user['id'])
     session['access_token'] = access_token
+
     flash("Login successful", "success")
     return redirect(url_for('show_home'))
 
@@ -191,147 +218,19 @@ def show_admin():
     return render_template('admin.html')
 
 @app.route('/grocery-list')
-def show_grocery_list():
-    username = session.get('username')
-    if not username:
-        flash("You must be logged in", "error")
+def grocery_list():
+    user_id = session.get('user_id')
+    if not user_id:
+        flash("Please log in to view your grocery list", "error")
         return redirect(url_for('show_login'))
 
-    user_resp = supabase.table("users").select("grocery_list").eq("username", username).execute()
-    users = user_resp.data if user_resp.data else []
-    grocery_list = users[0]['grocery_list'] if users and 'grocery_list' in users[0] else []
-    return render_template('grocery_list.html', grocery_list=grocery_list)
+    grocery_resp = supabase.table("grocery_list") \
+        .select("ingredient_name, quantity, unit, recipe_id") \
+        .eq("user_id", user_id) \
+        .execute()
 
-@app.route('/grocery-list/add', methods=['POST'])
-def grocery_list_add():
-    username = session.get('username')
-    if not username:
-        flash("You must be logged in", "error")
-        return redirect(url_for('show_login'))
-
-    item = request.form.get('item')
-    if not item:
-        flash("Item cannot be empty", "error")
-        return redirect(url_for('show_grocery_list'))
-
-    user_resp = supabase.table("users").select("grocery_list").eq("username", username).execute()
-    users = user_resp.data if user_resp.data else []
-    grocery_list = users[0]['grocery_list'] if users and 'grocery_list' in users[0] else []
-    
-    grocery_list.append(item.lower())
-    supabase.table("users").update({"grocery_list": grocery_list}).eq("username", username).execute()
-
-    flash(f"Added '{item}' to grocery list", "success")
-    return redirect(url_for('show_grocery_list'))
-
-@app.route('/grocery-list/remove', methods=['POST'])
-def grocery_list_delete():
-    username = session.get('username')
-    if not username:
-        flash("You must be logged in", "error")
-        return redirect(url_for('show_login'))
-
-    item = request.form.get('item')
-    if not item:
-        flash("Item cannot be empty", "error")
-        return redirect(url_for('show_grocery_list'))
-
-    user_resp = supabase.table("users").select("grocery_list").eq("username", username).execute()
-    users = user_resp.data if user_resp.data else []
-    grocery_list = users[0]['grocery_list'] if users and 'grocery_list' in users[0] else []
-
-    if item.lower() in grocery_list:
-        grocery_list.remove(item.lower())
-        supabase.table("users").update({"grocery_list": grocery_list}).eq("username", username).execute()
-        flash(f"Removed '{item}' from grocery list", "success")
-    else:
-        flash(f"'{item}' not found in grocery list", "error")
-
-    return redirect(url_for('show_grocery_list'))
-
-@app.route('/grocery-list/favorite', methods=['POST'])
-def grocery_list_favorite():
-    username = session.get('username')
-    if not username:
-        flash("You must be logged in", "error")
-        return redirect(url_for('show_login'))
-
-    item = request.form.get('item')
-    if not item:
-        flash("Item cannot be empty", "error")
-        return redirect(url_for('show_grocery_list'))
-
-    user_resp = supabase.table("users").select("favorites").eq("username", username).execute()
-    users = user_resp.data if user_resp.data else []
-    favorites = users[0]['favorites'] if users and 'favorites' in users[0] else []
-
-    if item.lower() not in favorites:
-        favorites.append(item.lower())
-        supabase.table("users").update({"favorites": favorites}).eq("username", username).execute()
-        flash(f"Added '{item}' to favorites", "success")
-    else:
-        flash(f"'{item}' is already in favorites", "error")
-
-    return redirect(url_for('show_grocery_list'))
-
-@app.route('/favorites')
-def show_favorites():
-    username = session.get('username')
-    if not username:
-        flash("You must be logged in", "error")
-        return redirect(url_for('show_login'))
-
-    user_resp = supabase.table("users").select("favorites").eq("username", username).execute()
-    users = user_resp.data if user_resp.data else []
-    favorites = users[0]['favorites'] if users and 'favorites' in users[0] else []
-    return render_template('favorites.html', favorites=favorites)
-
-@app.route('/favorites/remove', methods=['POST'])
-def grocery_list_unfavorite():
-    username = session.get('username')
-    if not username:
-        flash("You must be logged in", "error")
-        return redirect(url_for('show_login'))
-    item = request.form.get('item')
-    if not item:    
-        flash("Item cannot be empty", "error")
-        return redirect(url_for('show_favorites'))
-    user_resp = supabase.table("users").select("favorites").eq("username", username).execute()
-    users = user_resp.data if user_resp.data else []
-    favorites = users[0]['favorites'] if users and 'favorites' in users[0] else []
-    if item.lower() in favorites:
-        favorites.remove(item.lower())
-        supabase.table("users").update({"favorites": favorites}).eq("username", username).execute()
-        flash(f"Removed '{item}' from favorites", "success")
-    else:
-        flash(f"'{item}' not found in favorites", "error")
-    return redirect(url_for('show_favorites'))
-
-@app.route('/favorites/addGrocery', methods=['POST'])
-def grocery_list_add_favorite():
-    username = session.get('username')
-    if not username:
-        flash("You must be logged in", "error")
-        return redirect(url_for('show_login'))
-
-    item = request.form.get('item')
-    if not item:
-        flash("Item cannot be empty", "error")
-        return redirect(url_for('show_favorites'))
-
-    user_resp = supabase.table("users").select("grocery_list").eq("username", username).execute()
-    users = user_resp.data if user_resp.data else []
-    grocery_list = users[0]['grocery_list'] if users and 'grocery_list' in users[0] else []
-    
-    grocery_list.append(item.lower())
-    supabase.table("users").update({"grocery_list": grocery_list}).eq("username", username).execute()
-
-    flash(f"Added '{item}' to grocery list", "success")
-    return redirect(url_for('show_favorites'))
-
-@app.route('/recipes')
-def show_recipes():
-    return render_template('recipes.html')
+    groceries = grocery_resp.data
+    return render_template('grocery_list.html', groceries=groceries)
 
 
 # --- Helper function ---
@@ -466,31 +365,6 @@ def reset_money_spent():
     )
 
 
-
-
-@app.route('/search-recipes')
-def search_recipes():
-    ingredient = request.args.get('ingredient')
-    if not ingredient:
-        flash("Ingredient is required", "error")
-        return redirect(url_for('show_recipes'))
-
-    api_key = os.getenv("SPOONACULAR_API_KEY")
-    url = f"https://api.spoonacular.com/recipes/complexSearch?query={ingredient}&apiKey={api_key}&addRecipeInformation=true&number=9"
-    response = requests.get(url)
-    if response.status_code == 200:
-        recipes = response.json().get('results', [])
-        username = session.get('username')
-        user_resp = supabase.table("users").select("allergies").eq("username", username).execute()
-        users = user_resp.data if user_resp.data else []
-        allergies = users[0]['allergies'] if users and 'allergies' in users[0] else []
-        for recipe in recipes:
-            recipe['has_allergy'] = any(allergy.lower() in str(recipe).lower() for allergy in allergies)
-        return render_template('recipes.html', recipes=recipes, ingredient=ingredient)
-    else:
-        flash("Failed to fetch recipes", "error")
-        return redirect(url_for('show_recipes'))
-
 @app.route('/search-user')
 def search_user():
     username = request.args.get('user')
@@ -578,6 +452,274 @@ def scrape_ingredients():
         return jsonify({"msg": "No ingredients found"}), 404
 
     return jsonify({"msg": "Ingredients added to grocery list"}), 200
+
+
+
+#Everything recipes will be here
+@app.route('/next-recipe')
+def next_recipe():
+    user_id = session.get('user_id')
+    if not user_id:
+        flash("Please log in to view recipes", "error")
+        return redirect(url_for('show_login'))
+
+    recipe_api_key = os.getenv("SPOONACULAR_API_KEY")
+
+    # Get all Spoonacular IDs the user has already seen or favorited
+    seen_resp = supabase.table("seen_recipes").select("spoonacular_id").eq("user_id", user_id).execute()
+    favorite_resp = supabase.table("favorites").select("spoonacular_id").eq("user_id", user_id).execute()
+
+    seen_ids = {r['spoonacular_id'] for r in seen_resp.data}
+    favorite_ids = {r['spoonacular_id'] for r in favorite_resp.data}
+    exclude_ids = seen_ids.union(favorite_ids)
+
+    # Check to see if they have used any swipes today
+    total_swipes = supabase.table("user_profile").select("total_swipes").eq("user_id", user_id).execute()
+    
+    # If no swipes left, redirect to home with message
+    if total_swipes.data and total_swipes.data[0].get("total_swipes", 0) <= 0:
+        flash("You have used all your swipes for today. Please upgrade your plan or wait until tomorrow!", "info")
+        return redirect(url_for('show_home'))
+
+
+    # Build query to Spoonacular to fetch random recipes
+    url = f"https://api.spoonacular.com/recipes/random?number=10&apiKey={recipe_api_key}"
+    response = requests.get(url)
+
+    if response.status_code != 200:
+        flash("Failed to fetch recipes", "error")
+        return redirect(url_for('dashboard'))
+
+    recipes = response.json().get('recipes', [])
+    
+    # Filter out recipes the user already saw/favorited
+    unseen_recipes = [r for r in recipes if r['id'] not in exclude_ids]
+
+    if not unseen_recipes:
+        flash("No new recipes to show right now — check back later!", "info")
+        return redirect(url_for('dashboard'))
+
+    recipe = unseen_recipes[0]  # Show one recipe at a time
+
+    return render_template('swipe_recipe.html', recipe=recipe)
+
+
+@app.route('/favorite/<int:spoonacular_id>', methods=['POST'])
+def favorite(spoonacular_id):
+    user_id = session.get('user_id')
+    if not user_id:
+        flash("Please log in to favorite recipes", "error")
+        return redirect(url_for('show_login'))
+
+    api_key = os.getenv("SPOONACULAR_API_KEY")
+
+    # Step 1️⃣: Add to favorites (if not already there)
+    existing_fav = supabase.table("favorites") \
+        .select("id") \
+        .eq("user_id", user_id) \
+        .eq("spoonacular_id", spoonacular_id) \
+        .execute()
+
+    if not existing_fav.data:
+        supabase.table("favorites").insert({
+            "user_id": user_id,
+            "spoonacular_id": spoonacular_id
+        }).execute()
+
+    # Step 2️⃣: Mark as seen
+    existing_seen = supabase.table("seen_recipes") \
+        .select("id") \
+        .eq("user_id", user_id) \
+        .eq("spoonacular_id", spoonacular_id) \
+        .execute()
+
+    if not existing_seen.data:
+        supabase.table("seen_recipes").insert({
+            "user_id": user_id,
+            "spoonacular_id": spoonacular_id
+        }).execute()
+
+    # Step 3️⃣: Cache the recipe if not already cached
+    cache_check = supabase.table("cached_recipes") \
+        .select("spoonacular_id") \
+        .eq("spoonacular_id", spoonacular_id) \
+        .execute()
+
+    if not cache_check.data:
+        url = f"https://api.spoonacular.com/recipes/{spoonacular_id}/information?apiKey={api_key}"
+        response = requests.get(url)
+
+        if response.status_code == 200:
+            data = response.json()
+            supabase.table("cached_recipes").insert({
+                "spoonacular_id": data["id"],
+                "title": data.get("title", ""),
+                "image": data.get("image", ""),
+                "summary": data.get("summary", ""),
+                "ingredients": data.get("extendedIngredients", []),
+                "instructions": data.get("instructions", ""),
+            }).execute()
+
+    flash("Recipe added to favorites!", "success")
+
+    # Update user's remaining swipes
+    profile_resp = supabase.table("user_profile").select("total_swipes").eq("user_id", user_id).execute()
+    if profile_resp.data:
+        current_swipes = profile_resp.data[0].get("total_swipes", 0)
+        if current_swipes > 0:
+            supabase.table("user_profile").update({
+                "total_swipes": current_swipes - 1
+            }).eq("user_id", user_id).execute()
+        if current_swipes == 0:
+            flash("You have used all your swipes for today. Please upgrade your plan or wait until tomorrow!", "info")
+            return redirect(url_for('show_home'))
+
+    return redirect(url_for('next_recipe'))
+
+
+@app.route('/dislike/<int:spoonacular_id>', methods=['POST'])
+def dislike(spoonacular_id):
+    user_id = session.get('user_id')
+    if not user_id:
+        return redirect(url_for('show_login'))
+
+    # Just mark as seen
+    supabase.table("seen_recipes").insert({
+        "user_id": user_id,
+        "spoonacular_id": spoonacular_id
+    }).execute()
+
+    return redirect(url_for('next_recipe'))
+
+@app.route('/skip/<int:spoonacular_id>', methods=['POST'])
+def skip(spoonacular_id):
+    user_id = session.get('user_id')
+    if not user_id:
+        return redirect(url_for('show_login'))
+
+    # Optionally record skip in a separate table, or treat it as seen
+    supabase.table("seen_recipes").insert({
+        "user_id": user_id,
+        "spoonacular_id": spoonacular_id
+    }).execute()
+
+    profile_resp = supabase.table("user_profile").select("total_swipes").eq("user_id", user_id).execute()
+    if profile_resp.data:
+        current_swipes = profile_resp.data[0].get("total_swipes", 0)
+        if current_swipes > 0:
+            supabase.table("user_profile").update({
+                "total_swipes": current_swipes - 1
+            }).eq("user_id", user_id).execute()
+
+    return redirect(url_for('next_recipe'))
+
+
+@app.route('/favorite-recipes')
+def favorite_recipes():
+    user_id = session.get('user_id')
+    if not user_id:
+        flash("Please log in to view your favorites", "error")
+        return redirect(url_for('show_login'))
+
+    # Step 1️⃣: Fetch all spoonacular_ids the user has favorited
+    fav_resp = supabase.table("favorites") \
+        .select("spoonacular_id") \
+        .eq("user_id", user_id) \
+        .execute()
+
+    favorite_ids = [fav['spoonacular_id'] for fav in fav_resp.data]
+
+    if not favorite_ids:
+        flash("You have no favorite recipes yet.", "info")
+        return render_template('favorite_recipes.html', favorites=[])
+
+    # Step 2️⃣: Fetch all cached recipes that match those IDs
+    cached_recipes_resp = supabase.table("cached_recipes") \
+        .select("*") \
+        .in_("spoonacular_id", favorite_ids) \
+        .execute()
+
+    recipes = cached_recipes_resp.data if cached_recipes_resp.data else []
+
+    # Step 3️⃣: Render locally cached recipes
+    return render_template('favorite_recipes.html', favorites=recipes)
+
+
+
+
+@app.route('/unfavorite/<int:spoonacular_id>', methods=['POST'])
+def unfavorite_recipe(spoonacular_id):
+    user_id = session.get('user_id')
+    if not user_id:
+        return redirect(url_for('show_login'))
+
+    supabase.table("favorites").delete().eq("user_id", user_id).eq("spoonacular_id", spoonacular_id).execute()
+    flash("Recipe removed from favorites", "info")
+    return redirect(url_for('favorite_recipes'))
+
+
+@app.route('/add-to-grocery/<int:spoonacular_id>', methods=['POST'])
+def add_to_grocery(spoonacular_id):
+    user_id = session.get('user_id')
+    if not user_id:
+        flash("Please log in to add groceries", "error")
+        return redirect(url_for('show_login'))
+
+    api_key = os.getenv("SPOONACULAR_API_KEY")
+    url = f"https://api.spoonacular.com/recipes/{spoonacular_id}/information?apiKey={api_key}"
+    response = requests.get(url)
+
+    if response.status_code != 200:
+        flash("Failed to fetch recipe details.", "error")
+        return redirect(url_for('favorite_recipes'))
+
+    recipe_data = response.json()
+    ingredients = recipe_data.get("extendedIngredients", [])
+
+    added_count = 0
+    for ing in ingredients:
+        name = ing.get("nameClean") or ing.get("name") or "Unknown"
+        amount = str(ing.get("amount", ""))
+        unit = ing.get("unit", "")
+
+        # Check if already exists in user's grocery list
+        existing = supabase.table("grocery_list") \
+            .select("id") \
+            .eq("user_id", user_id) \
+            .eq("ingredient_name", name) \
+            .execute()
+
+        if not existing.data:
+            supabase.table("grocery_list").insert({
+                "user_id": user_id,
+                "ingredient_name": name,
+                "quantity": amount,
+                "unit": unit,
+                "recipe_id": spoonacular_id
+            }).execute()
+            added_count += 1
+
+    flash(f"Added {added_count} new items to your grocery list!", "success")
+    return redirect(url_for('favorite_recipes'))
+
+
+@app.route('/remove-grocery-item/<uuid:item_id>', methods=['POST'])
+def remove_grocery_item(item_id):
+    user_id = session.get('user_id')
+    if not user_id:
+        flash("Please log in to modify your grocery list", "error")
+        return redirect(url_for('show_login'))
+
+    # Ensure the user only deletes their own item
+    supabase.table("grocery_list") \
+        .delete() \
+        .eq("id", str(item_id)) \
+        .eq("user_id", user_id) \
+        .execute()
+
+    flash("Item removed from grocery list", "info")
+    return redirect(url_for('grocery_list'))
+
 
 if __name__ == '__main__':
     app.run(debug=True)

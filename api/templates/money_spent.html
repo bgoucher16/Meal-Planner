@@ -6,72 +6,158 @@
     <title>Monthly Spending Tracker</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <style>
+        /* Dark mode overrides */
+        @media (prefers-color-scheme: dark) {
+            body { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #e2e8f0; }
+            .topbar { background: #1e293b; box-shadow: 0 2px 12px rgba(0,0,0,0.4); }
+            .card, .spending-item { background: #334155; color: #e2e8f0; }
+            .hero { background: linear-gradient(120deg, #6366f1, #4338ca); }
+            .btn { background: linear-gradient(90deg, #6366f1, #818cf8); }
+            a { color: #93c5fd; }
+        }
+
+        /* Spending list styling */
         .spending-list {
             margin-top: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
+
         .spending-item {
             display: flex;
-            align-items: center;
             justify-content: space-between;
-            padding: 0 18px;
+            align-items: center;
             background: #f3f6fa;
             border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(60, 72, 88, 0.04);
-            margin-bottom: 12px;
-            min-height: 48px;
+            padding: 12px 18px;
+            box-shadow: 0 2px 8px rgba(60, 72, 88, 0.05);
         }
+
         .amount-value {
-            flex: 1;
             font-size: 1.08em;
-            padding: 12px 0;
+            font-weight: 600;
         }
+
         .date-value {
             color: #64748b;
-            font-size: 0.98em;
-            padding-left: 12px;
-            white-space: nowrap;
+            font-size: 0.95em;
         }
+
         @media (max-width: 600px) {
             .spending-item {
                 flex-direction: column;
-                align-items: stretch;
-                gap: 8px;
-                padding: 0 8px;
-            }
-            .date-value {
-                padding-left: 0;
-                padding-bottom: 8px;
+                align-items: flex-start;
+                gap: 6px;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2>Spending for {{ month }} {{ year }}</h2>
-        <div style="margin-bottom:18px;">Total this month: <strong>${{ '%.2f'|format(current_total) }}</strong></div>
-        <form method="POST" action="{{ url_for('money_spent') }}" style="display:flex; gap:12px; margin-bottom:12px;">
-            <input type="number" name="amount" step="0.01" min="0" placeholder="Enter amount" required>
-            <button type="submit">Add</button>
-        </form>
-        <form method="POST" action="{{ url_for('reset_money_spent') }}" style="margin-bottom:24px;">
-            <input type="hidden" name="reset" value="1">
-            <button type="submit" style="background:#ef4444;">Reset for New Month</button>
-        </form>
-        <ul class="spending-list">
-            {% for entry in values %}
-                <li class="spending-item">
+
+    <!-- Topbar -->
+    <nav class="topbar">
+        <div class="topbar-left">
+            <h1>💰 Spending Tracker</h1>
+        </div>
+        <div class="topbar-right">
+            <button id="themeToggle" title="Toggle dark mode" style="border:none;background:none;cursor:pointer;font-size:1.2em;">🌞</button>
+            <select onchange="if (this.value) window.location.href=this.value;">
+                <option disabled selected>⚙️</option>
+                <option value="{{ url_for('show_home') }}">🏠 Home</option>
+                <option value="{{ url_for('grocery_list') }}">🛒 Grocery List</option>
+                <option value="{{ url_for('favorite_recipes') }}">❤️ Favorites</option>
+                <option value="{{ url_for('logout') }}">🔓 Logout</option>
+            </select>
+        </div>
+    </nav>
+
+    <!-- Main Dashboard -->
+    <main class="dashboard">
+
+        <!-- Hero -->
+        <section class="hero" style="text-align:center;">
+            <h2>Spending — {{ month }} {{ year }}</h2>
+            <p>Track your food expenses month-to-month with ease.</p>
+        </section>
+
+        <!-- Current Month Overview -->
+        <section class="card" style="text-align:center;">
+            <h3>Total This Month:</h3>
+            <p style="font-size:1.3em; font-weight:600; color:#1e293b;">
+                ${{ '%.2f'|format(current_total) }}
+            </p>
+        </section>
+
+        <!-- Add Spending -->
+        <section class="card" style="text-align:center;">
+            <form method="POST" action="{{ url_for('money_spent') }}" 
+                  style="display:flex; justify-content:center; gap:12px; flex-wrap:wrap;">
+                <input type="number" name="amount" step="0.01" min="0" placeholder="Enter amount" required
+                       style="flex:1 1 160px; padding:10px; border-radius:8px; border:1px solid #cbd5e1;">
+                <button type="submit" class="btn" style="max-width:160px;">Add</button>
+            </form>
+
+            <form method="POST" action="{{ url_for('reset_money_spent') }}" style="margin-top:14px;">
+                <input type="hidden" name="reset" value="1">
+                <button type="submit" class="btn" 
+                        style="background:linear-gradient(90deg,#ef4444,#b91c1c); max-width:220px;">
+                    🔁 Reset for New Month
+                </button>
+            </form>
+        </section>
+
+        <!-- Spending List -->
+        <section class="card">
+            <h2>Transaction History</h2>
+            {% if values %}
+            <ul class="spending-list">
+                {% for entry in values %}
+                <li class="spending-item" style="animation:fadeIn 0.3s ease;">
                     <span class="amount-value">
                         ${{ '%.2f'|format(entry.amount if entry is mapping else entry) }}
                     </span>
                     <span class="date-value">
-                        {% if entry is mapping and entry.date %}
-                            {{ entry.date }}
-                        {% endif %}
+                        {% if entry is mapping and entry.date %}{{ entry.date }}{% endif %}
                     </span>
                 </li>
-            {% endfor %}
-        </ul>
-        <p><a href="{{ url_for('show_home') }}">Home</a></p>
-    </div>
+                {% endfor %}
+            </ul>
+            {% else %}
+                <p style="text-align:center; color:#64748b;">No spending data yet for this month.</p>
+            {% endif %}
+        </section>
+
+        <!-- Back Home -->
+        <div style="text-align:center; margin-top:30px;">
+            <a href="{{ url_for('show_home') }}" class="btn" style="max-width:200px;">⬅ Back to Home</a>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>© {{ current_year }} Meal Planner — Track your spending smarter.</p>
+    </footer>
+
+    <!-- Theme Toggle Script -->
+    <script>
+        const toggleButton = document.getElementById('themeToggle');
+        const body = document.body;
+
+        // Load saved preference
+        if (localStorage.getItem('theme') === 'dark') {
+            body.classList.add('dark');
+            toggleButton.textContent = '🌙';
+        }
+
+        toggleButton.addEventListener('click', () => {
+            body.classList.toggle('dark');
+            const darkMode = body.classList.contains('dark');
+            toggleButton.textContent = darkMode ? '🌙' : '🌞';
+            localStorage.setItem('theme', darkMode ? 'dark' : 'light');
+        });
+    </script>
+
 </body>
 </html>
